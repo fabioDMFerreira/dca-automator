@@ -311,11 +311,11 @@ describe("Dollar Cost Averaging", function () {
     const taskReceiptId = await gelatoCore.currentTaskReceiptId();
     taskReceipt.id = taskReceiptId;
 
-    const transactionHash = await gelatoCore.hashTaskReceipt(taskReceipt);
+    const transactionReceiptHash = await gelatoCore.hashTaskReceipt(taskReceipt);
 
     expect(
       await gelatoCore.taskReceiptHash(taskReceipt.id)
-    ).to.be.equal(transactionHash);
+    ).to.be.equal(transactionReceiptHash);
 
     // ======= 📣 TASK EXECUTION 📣 =========
     // This stuff is normally automated by the Gelato Network and Dapp Developers
