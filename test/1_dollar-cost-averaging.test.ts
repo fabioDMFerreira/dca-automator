@@ -2,7 +2,7 @@ import bre from '@nomiclabs/buidler';
 import { ethers, config as buidlerConfig } from "@nomiclabs/buidler";
 import { expect } from "chai";
 import GelatoCoreLib from '@gelatonetwork/core';
-import { Contract, ContractFactory, Signer } from 'ethers';
+import { BigNumber, Contract, ContractFactory, Signer } from 'ethers';
 import config, { ERC20ContractsAddresses } from '../src/config';
 import { readArtifact } from '@nomiclabs/buidler/plugins';
 
@@ -14,6 +14,7 @@ const DAI_100 = ethers.utils.parseUnits("100", 18);
 const TWO_MINUTES = 120; // seconds
 
 // Contracts
+const InstaConnectors = require("../pre-compiles/InstaConnectors.json");
 const InstaIndex = require("../pre-compiles/InstaIndex.json");
 const InstaList = require("../pre-compiles/InstaList.json");
 const InstaAccount = require("../pre-compiles/InstaAccount.json");
@@ -41,6 +42,7 @@ describe("Dollar Cost Averaging", function () {
   let gelatoCore: Contract;
   let dai: Contract;
   let providerModuleDSA: Contract;
+  let instaConnectors: Contract;
 
   // Contracts to deploy and use for local testing
   let dsa: Contract;
@@ -72,6 +74,10 @@ describe("Dollar Cost Averaging", function () {
     connectGelato = await ethers.getContractAt(
       ConnectGelato.abi,
       config.contracts.ConnectGelato
+    );
+    instaConnectors = await ethers.getContractAt(
+      InstaConnectors.abi,
+      config.contracts.InstaConnectors
     );
 
     // Deploy DSA and get and verify ID of newly deployed DSA
@@ -112,6 +118,20 @@ describe("Dollar Cost Averaging", function () {
     conditionTimeStateful = await ConditionTimeStateful.deploy(gelatoCore.address)
 
     await conditionTimeStateful.deployed()
+
+    await userWallet.sendTransaction({
+      to: config.contracts.InstaMaster,
+      value: ethers.utils.parseEther("0.1"),
+    });
+
+    expect(
+      await instaConnectors.isConnector([conditionTimeStateful.address])
+    ).to.be.false;
+    const instaMaster = await ethers.provider.getSigner(config.contracts.InstaMaster);
+    await instaConnectors.connect(instaMaster).enable(conditionTimeStateful.address);
+    expect(
+      await instaConnectors.isConnector([conditionTimeStateful.address])
+    ).to.be.true;
 
     console.log("ConditionTimeStateful deployed to:", conditionTimeStateful.address)
 
@@ -286,7 +306,7 @@ describe("Dollar Cost Averaging", function () {
               gelatoSelfProvider,
               [dollarCostAveraging],
               expiryDate,
-              0,
+              3,
             ],
           }),
         ], // datas
@@ -300,16 +320,17 @@ describe("Dollar Cost Averaging", function () {
     // Task Receipt: a successfully submitted Task in Gelato
     // is wrapped in a TaskReceipt. For testing we instantiate the TaskReceipt
     // for our to be submitted Task.
+    let currentTaskReceiptId = await gelatoCore.currentTaskReceiptId();
     const taskReceipt = new GelatoCoreLib.TaskReceipt({
       userProxy: dsa.address,
       provider: gelatoSelfProvider,
       tasks: [dollarCostAveraging],
-      cycleId: 1,
-      submissionsLeft: 0,
+      cycleId: currentTaskReceiptId,
+      submissionsLeft: 3,
     });
 
-    const taskReceiptId = await gelatoCore.currentTaskReceiptId();
-    taskReceipt.id = taskReceiptId;
+    currentTaskReceiptId = await gelatoCore.currentTaskReceiptId();
+    taskReceipt.id = currentTaskReceiptId;
 
     const transactionReceiptHash = await gelatoCore.hashTaskReceipt(taskReceipt);
 
@@ -353,7 +374,8 @@ describe("Dollar Cost Averaging", function () {
         gasPrice: gelatoGasPrice, // Exectutor must use gelatoGasPrice (Chainlink fast gwei)
         gasLimit: dollarCostAveraging.selfProviderGasLimit,
       })
-    ).to.emit(gelatoCore, "LogExecSuccess");
+    )
+    .to.emit(gelatoCore, "LogExecSuccess");
 
     expect(await dai.balanceOf(dsa.address)).to.be.equal("2900000000000000000000");
   });

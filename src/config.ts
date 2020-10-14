@@ -8,6 +8,7 @@ export default {
   contracts: {
     "GelatoCore": "0x1d681d76ce96E4d70a88A00EBbcfc1E47808d0b8",
     "InstaIndex": "0x2971AdFa57b20E5a416aE5a708A8655A9c74f723",
+    "InstaMaster": "0xb1dc62ec38e6e3857a887210c38418e4a17da5b2",
     "InstaList": "0x4c8a1BEb8a87765788946D6B19C6C6355194AbEb",
     "InstaConnectors": "0xD6A602C01a023B98Ecfb29Df02FBA380d3B21E0c",
     "InstaAccount": "0x939Daad09fC4A9B8f8A9352A485DAb2df4F4B3F8",

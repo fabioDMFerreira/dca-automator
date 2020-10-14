@@ -32,6 +32,8 @@ const config: BuidlerConfig = {
       url: "http://localhost:8545",
       // @ts-ignore
       fork: `https://mainnet.infura.io/v3/${INFURA_ID}`,
+
+      unlocked_accounts: ["0xb1dc62ec38e6e3857a887210c38418e4a17da5b2"]
     },
   },
   // This is a sample solc configuration that specifies which version of solc to use
