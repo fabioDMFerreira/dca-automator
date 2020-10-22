@@ -1,6 +1,7 @@
 import { BuidlerConfig, task, usePlugin, types } from "@nomiclabs/buidler/config";
 import { utils } from 'ethers';
 import GelatoCoreLib from '@gelatonetwork/core';
+import fs from 'fs';
 
 const assert = require("assert");
 
@@ -18,7 +19,6 @@ task("accounts", "Prints the list of accounts", async (_, bre) => {
     console.log(await account.getAddress());
   }
 });
-
 
 // You have to export an object to set up your config
 // This object can have the following optional entries:
@@ -156,3 +156,52 @@ task(
       process.exit(1);
     }
   });
+
+
+// The next line is part of the sample project, you don't need it in your
+// project. It imports a Buidler task definition, that can be used for
+// testing the frontend.
+task("faucet", "Sends ETH and tokens to an address")
+  .addPositionalParam("receiver", "The address that will receive them")
+  .setAction(async ({ receiver }, bre) => {
+    if (bre.network.name === "buidlerevm") {
+      console.warn(
+        "You are running the facuet task with Buidler EVM network, which" +
+        "gets automatically created and destroyed every time. Use the Buidler" +
+        " option '--network localhost'"
+      );
+    }
+
+    const addressesFile =
+      __dirname + "/frontend/src/contracts/contract-address.json";
+
+    if (!fs.existsSync(addressesFile)) {
+      console.error("You need to deploy your contract first");
+      return;
+    }
+
+    const addressJson = fs.readFileSync(addressesFile);
+    const address = JSON.parse(addressJson.toString('utf8'));
+
+    console.log({address})
+
+    if ((await bre.ethers.provider.getCode(address.Token)) === "0x") {
+      console.error("You need to deploy your contract first");
+      return;
+    }
+
+    const token = await bre.ethers.getContractAt("Token", address.Token);
+    const [sender] = await bre.ethers.getSigners();
+
+    const tx = await token.transfer(receiver, 100);
+    await tx.wait();
+
+    const tx2 = await sender.sendTransaction({
+      to: receiver,
+      value: bre.ethers.constants.WeiPerEther,
+    });
+    await tx2.wait();
+
+    console.log(`Transferred 1 ETH and 100 tokens to ${receiver}`);
+  });
+

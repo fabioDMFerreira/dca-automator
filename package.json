@@ -4,7 +4,10 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "npx buidler test",
+    "launch-node": "npx buidler node",
+    "deploy-contracts": "npx buidler run scripts/deploy.ts --network localhost",
+    "faucet": "npx buidler --network localhost faucet"
   },
   "author": "",
   "license": "ISC",
