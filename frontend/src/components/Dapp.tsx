@@ -24,7 +24,7 @@ import SmartAccount from "./SmartAccount";
 // This is the Buidler EVM network id, you might change it in the buidler.config.js
 // Here's a list of network ids https://docs.metamask.io/guide/ethereum-provider.html#properties
 // to use when deploying to other networks.
-const BUIDLER_EVM_NETWORK_ID = '31337';
+const HARDHAT_EVM_CHAIN_ID = '1337';
 
 interface Props { }
 
@@ -323,8 +323,9 @@ export class Dapp extends React.Component<Props> {
   }
 
   // This method checks if Metamask selected network is Localhost:8545
-  _checkNetwork() {
-    if (window.ethereum.networkVersion === BUIDLER_EVM_NETWORK_ID) {
+  async _checkNetwork() {
+    const chainID = await window.ethereum.request({ method: 'net_version' })
+    if (chainID === HARDHAT_EVM_CHAIN_ID) {
       return true;
     }
 
@@ -364,17 +365,17 @@ export class Dapp extends React.Component<Props> {
     }
     let smartAccounts = []
 
-    const userLink = await this._instaList.userLink(userAddress)
+      const userLink = await this._instaList.userLink(userAddress)
 
-    const userList = await this._instaList.userList(userAddress, userLink.first)
-    let userListNext = userList.next
+      const userList = await this._instaList.userList(userAddress, userLink.first)
+      let userListNext = userList.next
 
-    while (userListNext.toString() != "0") {
-      let userList = await this._instaList.userList(userAddress, userListNext);
-      userListNext = userList.next;
-      const accountAddress = await this._instaList.accountAddr(userList[0])
-      smartAccounts.push(accountAddress.toString())
-    }
+      while (userListNext.toString() != "0") {
+        let userList = await this._instaList.userList(userAddress, userListNext);
+        userListNext = userList.next;
+        const accountAddress = await this._instaList.accountAddr(userList[0])
+        smartAccounts.push(accountAddress.toString())
+      }
 
     return smartAccounts;
   }

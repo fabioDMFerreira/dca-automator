@@ -1,4 +1,4 @@
-pragma solidity ^0.6.0;
+pragma solidity ^0.6.12;
 pragma experimental ABIEncoderV2;
 
 /**
@@ -82,7 +82,8 @@ contract Record {
     function toAsciiString(address x) internal view returns (string memory addr) {
         bytes memory s = new bytes(40);
         for (uint256 i = 0; i < 20; i++) {
-            bytes1 b = bytes1(uint8(uint256(x) / (2**(8 * (19 - i)))));
+            uint256 addr = uint256(x);
+            bytes1 b = bytes1(uint8(addr / (2**(8 * (19 - i)))));
             bytes1 hi = bytes1(uint8(b) / 16);
             bytes1 lo = bytes1(uint8(b) - 16 * uint8(hi));
             s[2 * i] = char(hi);

@@ -1,5 +1,5 @@
-import { ethers, network } from '@nomiclabs/buidler';
-import { Contract, Signer } from 'ethers';
+import { network, ethers } from 'hardhat';
+import { Contract } from 'ethers';
 import fs from 'fs';
 
 interface ContractContainer {
@@ -11,7 +11,7 @@ interface ContractContainer {
 // yours, or create new ones.
 async function main() {
   // This is just a convenience check
-  if (network.name === "buidlerevm") {
+  if (network.name === "hardhat") {
     console.warn(
       "You are trying to deploy a contract to the Buidler EVM network, which" +
       "gets automatically created and destroyed every time. Use the Buidler" +
@@ -38,6 +38,9 @@ async function main() {
 
     const contractFactory = await ethers.getContractFactory(contractName);
     const contract = await contractFactory.deploy();
+
+    await contract.deployed();
+
     console.log(contractName, " address: ", contract.address);
     contracts.push({
       name: contractName,
@@ -72,7 +75,7 @@ function saveFrontendFiles(contracts: ContractContainer[]) {
 
   contracts.forEach((contract) => {
     fs.copyFileSync(
-      __dirname + `/../artifacts/${contract.name}.json`,
+      __dirname + `/../artifacts/contracts/${contract.name}.sol/${contract.name}.json`,
       contractsDir + `/${contract.name}.json`
     );
   })

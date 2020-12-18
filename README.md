@@ -10,6 +10,11 @@ cd instadapp-manager
 npm install
 ```
 
+Set environment variables in `.env`:
+```
+INFURA_ID=<your infura node id>
+```
+
 Once installed, let's run Buidler's testing network:
 
 ```sh
