@@ -12,6 +12,7 @@ interface AccountInterface {
     function enable(address authority) external;
     function cast(address[] calldata _targets, bytes[] calldata _datas, address _origin) external payable returns (bytes32[] memory responses);
     function setIndex(address _instaIndex) external;
+    function initialize(uint256 _period) external;
 }
 
 interface ListInterface {
@@ -156,9 +157,10 @@ contract InstaIndex is CloneFactory {
         uint accountVersion,
         address[] calldata _targets,
         bytes[] calldata _datas,
+        uint256 _period,
         address _origin
     ) external payable returns (address _account) {
-        _account = build(_owner, accountVersion, _origin);
+        _account = build(_owner, accountVersion, _period, _origin);
         if (_targets.length > 0) AccountInterface(_account).cast.value(msg.value)(_targets, _datas, _origin);
     }
 
@@ -171,6 +173,7 @@ contract InstaIndex is CloneFactory {
     function build(
         address _owner,
         uint accountVersion,
+        uint256 _period,
         address _origin
     ) public returns (address _account) {
         require(accountVersion != 0 && accountVersion <= versionCount, "not-valid-account");
@@ -178,6 +181,7 @@ contract InstaIndex is CloneFactory {
         ListInterface(list).init(_account);
         AccountInterface(_account).setIndex(address(this));
         AccountInterface(_account).enable(_owner);
+        AccountInterface(_account).initialize(_period);
         emit LogAccountCreated(msg.sender, _owner, _account, _origin);
     }
 

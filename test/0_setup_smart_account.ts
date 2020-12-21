@@ -1,9 +1,9 @@
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
 import { expect } from "chai"
 import { Contract, utils } from "ethers";
-import { ethers } from 'hardhat';
+import { ethers, waffle } from 'hardhat';
 
-import InstaAccountABI from '../artifacts/contracts/InstaAccount.sol/InstaAccount.json'
+import DCAAccountABI from '../artifacts/contracts/DCAAccount.sol/DCAAccount.json'
 import ConnectBasicABI from '../artifacts/contracts/ConnectBasic.sol/ConnectBasic.json'
 import UniswapABI from '../artifacts/contracts/Uniswap.sol/ConnectUniswapV2.json';
 import IERC20ABI from '../artifacts/@openzeppelin/contracts/token/ERC20/IERC20.sol/IERC20.json'
@@ -21,7 +21,7 @@ describe("Setup smart account", () => {
   let instaIndex: Contract;
   let instaList: Contract;
   let instaConnectors: Contract;
-  let instaAccount: Contract;
+  let dcaAccount: Contract;
 
   // Resolvers
   let instaDSAResolver: Contract;
@@ -53,8 +53,8 @@ describe("Setup smart account", () => {
     let instaConnectorsFactory = await ethers.getContractFactory("InstaConnectors")
     instaConnectors = await instaConnectorsFactory.deploy();
 
-    let instaAccountFactory = await ethers.getContractFactory("InstaAccount")
-    instaAccount = await instaAccountFactory.deploy();
+    let dcaAccountFactory = await ethers.getContractFactory("DCAAccount")
+    dcaAccount = await dcaAccountFactory.deploy();
 
     let connectBasicFactory = await ethers.getContractFactory("ConnectBasic")
     connectBasic = await connectBasicFactory.deploy();
@@ -65,13 +65,13 @@ describe("Setup smart account", () => {
     await instaIndex.deployed()
     await instaList.deployed()
     await instaConnectors.deployed()
-    await instaAccount.deployed()
+    await dcaAccount.deployed()
     await connectBasic.deployed()
     await uniswap.deployed()
 
-    await instaIndex.setBasics(signerAddress, instaList.address, instaAccount.address, instaConnectors.address)
+    await instaIndex.setBasics(signerAddress, instaList.address, dcaAccount.address, instaConnectors.address)
     await instaList.setIndex(instaIndex.address)
-    await instaAccount.setIndex(instaIndex.address)
+    await dcaAccount.setIndex(instaIndex.address)
     await instaConnectors.setIndex(instaIndex.address)
 
     // Enable Connectors
@@ -105,8 +105,13 @@ describe("Setup smart account", () => {
       await instaList.accounts()
     ).to.be.equal("0")
 
+    const currentTimestamp = 1608572844070;
+    const period = 60 * 60;
+
+    await waffle.provider.send("evm_setNextBlockTimestamp", [currentTimestamp]);
+
     await expect(
-      instaIndex.build(signerAddress, currentVersion, signerAddress)
+      instaIndex.build(signerAddress, currentVersion, period, signerAddress)
     )
       .to.emit(instaIndex, "LogAccountCreated")
       .withArgs(signerAddress, signerAddress, smartAccountAddress, signerAddress)
@@ -115,11 +120,14 @@ describe("Setup smart account", () => {
       await instaList.accounts()
     ).to.be.equal("1")
 
-    smartAccount = await ethers.getContractAt(InstaAccountABI.abi, smartAccountAddress)
+    smartAccount = await ethers.getContractAt(DCAAccountABI.abi, smartAccountAddress)
 
     await expect(
       await smartAccount.isAuth(signerAddress)
     ).to.be.equal(true)
+
+    const nextDCA = await smartAccount.taskTimeRef()
+    expect(nextDCA).to.equal(currentTimestamp + period);
   })
 
   it("resolver should get smart accounts addresses", async () => {
@@ -161,8 +169,6 @@ describe("Setup smart account", () => {
   })
 
   it("withdraw eth from smart account", async () => {
-
-
     await expect(
       await ethers.provider.getBalance(smartAccountAddress)
     ).to.equal(ethers.utils.parseEther("1").toString())
@@ -205,7 +211,37 @@ describe("Setup smart account", () => {
 
   });
 
-  it("buy DAI in uniswap", async () => {
+  // it("buy DAI in uniswap", async () => {
+  //   const [buyAmount, unitAmt] = await uniswapResolver.getBuyAmount(daiAddress, ethAddress, ethers.utils.parseEther("0.5"), 1)
+
+  //   const targets = [uniswap.address];
+  //   const datas = [
+  //     encodeUniswapSpell(
+  //       "buy",
+  //       [
+  //         daiAddress,
+  //         ethAddress,
+  //         buyAmount,
+  //         unitAmt,
+  //         0,
+  //         0
+  //       ]
+  //     )
+  //   ];
+
+  //   await expect(
+  //     await dai.balanceOf(smartAccountAddress)
+  //   ).to.equal("0")
+
+  //   await smartAccount.cast(targets, datas, signerAddress)
+
+  //   const daiBalance = await dai.balanceOf(smartAccountAddress)
+  //   await expect(
+  //     daiBalance
+  //   ).to.not.equal("0")
+  // });
+
+  it("should fail executing dca operation if current timestamp is prior to contract time reference", async () => {
     const [buyAmount, unitAmt] = await uniswapResolver.getBuyAmount(daiAddress, ethAddress, ethers.utils.parseEther("0.5"), 1)
 
     const targets = [uniswap.address];
@@ -224,20 +260,46 @@ describe("Setup smart account", () => {
     ];
 
     await expect(
-      await dai.balanceOf(smartAccountAddress)
-    ).to.equal("0")
+      smartAccount.dca(targets, datas, signerAddress)
+    ).to.be.revertedWith("not permited yet")
 
-    await smartAccount.cast(targets, datas, signerAddress)
+  })
 
-    const daiBalance = await dai.balanceOf(smartAccountAddress)
+  it("should execute dca operation if current timestamp is after time reference and update time reference accordingly", async () => {
+    const [buyAmount, unitAmt] = await uniswapResolver.getBuyAmount(daiAddress, ethAddress, ethers.utils.parseEther("0.5"), 1)
+
+    const targets = [uniswap.address];
+    const datas = [
+      encodeUniswapSpell(
+        "buy",
+        [
+          daiAddress,
+          ethAddress,
+          buyAmount,
+          unitAmt,
+          0,
+          0
+        ]
+      )
+    ];
+
+    const timeRef = await smartAccount.taskTimeRef();
+
+    await waffle.provider.send("evm_setNextBlockTimestamp", [+timeRef + 1]);
+
     await expect(
-      daiBalance
-    ).to.not.equal("0")
-  });
+      smartAccount.dca(targets, datas, signerAddress)
+    ).to.emit(smartAccount, "LogCast")
+
+    const newTimeRef = await smartAccount.taskTimeRef();
+
+    expect(+newTimeRef.toString()).to.equal(+timeRef + (60 * 60))
+
+  })
 
 })
 
-function encodeBasicConnectSpell( method: string, args: any[]) {
+function encodeBasicConnectSpell(method: string, args: any[]) {
   const ifc = new utils.Interface(ConnectBasicABI.abi)
 
   const funcFrags = ifc.getFunction(method)
