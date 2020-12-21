@@ -27,14 +27,20 @@ async function main() {
     deployerAddress
   );
 
+  const contractsDir = __dirname + "/../contracts";
+
   console.log("Account balance:", (await deployer.getBalance()).toString());
 
   const contracts: ContractContainer[] = [];
-  const contractsFilesNames = fs.readdirSync(__dirname + "/../contracts")
+  const contractsFilesNames = fs.readdirSync(contractsDir)
 
   for (let i = 0; i < contractsFilesNames.length; i++) {
     const contractFileName = contractsFilesNames[i];
     const contractName = contractFileName.split('.')[0]
+
+    if (fs.lstatSync(contractsDir + "/" + contractFileName).isDirectory()) {
+      continue;
+    }
 
     const contractFactory = await ethers.getContractFactory(contractName);
     const contract = await contractFactory.deploy();
@@ -51,8 +57,9 @@ async function main() {
   // We also save the contract's artifacts and address in the frontend directory
   saveFrontendFiles(contracts);
 
-  // set insta index basics
-  await setInstaIndexBasics(deployerAddress, contracts)
+  await setInstaIndexBasics(deployerAddress, contracts);
+  await buildSmartAccount(deployerAddress, contracts);
+  await enableBasicConnector(deployerAddress, contracts);
 }
 
 function saveFrontendFiles(contracts: ContractContainer[]) {
@@ -84,12 +91,30 @@ function saveFrontendFiles(contracts: ContractContainer[]) {
 async function setInstaIndexBasics(signerAddress: string, contracts: ContractContainer[]) {
   const instaIndex = getContractByName("InstaIndex", contracts);
   const instaList = getContractByName("InstaList", contracts);
-  const instaConnectors = getContractByName("InstaConnectors", contracts)
-  const instaAccount = getContractByName("InstaAccount", contracts)
+  const instaConnectors = getContractByName("InstaConnectors", contracts);
+  const instaAccount = getContractByName("InstaAccount", contracts);
 
   await instaIndex.setBasics(signerAddress, instaList.address, instaAccount.address, instaConnectors.address)
   await instaList.setIndex(instaIndex.address)
   await instaAccount.setIndex(instaIndex.address)
+}
+
+async function buildSmartAccount(signerAddress: string, contracts: ContractContainer[]) {
+  const instaIndex = getContractByName("InstaIndex", contracts);
+
+  const currentVersion = await instaIndex.versionCount()
+  await instaIndex.build(signerAddress, currentVersion, signerAddress)
+  await instaIndex.build(signerAddress, currentVersion, signerAddress)
+}
+
+async function enableBasicConnector(signerAddress: string, contracts: ContractContainer[]) {
+  // const instaIndex = getContractByName("InstaIndex", contracts);
+  // const connectBasic = getContractByName("ConnectBasic", contracts);
+
+  // const currentVersion = await instaIndex.versionCount()
+
+  // await instaIndex.build(signerAddress, currentVersion, signerAddress)
+
 }
 
 function getContractByName(name: string, contracts: ContractContainer[]) {

@@ -1,12 +1,11 @@
 import { HardhatUserConfig, task, types } from "hardhat/config";
-import { utils } from 'ethers';
+import { ethers, utils } from 'ethers';
 import fs from 'fs';
 
 // ================================= PLUGINS =========================================
 import "@nomiclabs/hardhat-ethers";
 import "@nomiclabs/hardhat-ganache";
 import "@nomiclabs/hardhat-waffle";
-import { HttpNetworkConfig } from "hardhat/types";
 
 const assert = require("assert");
 
@@ -14,6 +13,7 @@ const assert = require("assert");
 require("dotenv").config();
 const INFURA_ID = process.env.INFURA_ID;
 assert.ok(INFURA_ID, "no Infura ID in process.env");
+const infuraURL = `https://mainnet.infura.io/v3/${INFURA_ID}`;
 
 // This is a sample Buidler task. To learn how to create your own go to
 // https://buidler.dev/guides/create-task.html
@@ -35,13 +35,16 @@ const config: HardhatUserConfig = {
     hardhat: {
       chainId: 1337,
       accounts: [{
-        privateKey:"cdf26c00dd5d4b56edce92609c78f79fc272aee66a55e2aeef140e8a5dd74d1c",
-        balance: "1000000000000000000",
+        privateKey: "cdf26c00dd5d4b56edce92609c78f79fc272aee66a55e2aeef140e8a5dd74d1c",
+        balance: ethers.utils.parseEther("10").toString(),
       }],
+      forking: {
+        url: infuraURL
+      },
     },
     ganache: {
       accounts: ["cdf26c00dd5d4b56edce92609c78f79fc272aee66a55e2aeef140e8a5dd74d1c"],
-      url: `https://mainnet.infura.io/v3/${INFURA_ID}`,
+      url: infuraURL,
     }
   },
   // This is a sample solc configuration that specifies which version of solc to use

@@ -1,6 +1,8 @@
 pragma solidity ^0.6.12;
 pragma experimental ABIEncoderV2;
 
+import "hardhat/console.sol";
+
 /**
  * @title InstaAccount.
  * @dev DeFi Smart Account Wallet.
@@ -79,7 +81,11 @@ contract Record {
         else return bytes1(uint8(b) + 0x57);
     }
 
-    function toAsciiString(address x) internal view returns (string memory addr) {
+    function toAsciiString(address x)
+        internal
+        view
+        returns (string memory addr)
+    {
         bytes memory s = new bytes(40);
         for (uint256 i = 0; i < 20; i++) {
             uint256 addr = uint256(x);
@@ -144,6 +150,9 @@ contract InstaAccount is Record {
      * @param _data CallData of function in Connector.
      */
     function spell(address _target, bytes memory _data) internal {
+        // console.log("InstaAccount.spell %s %s", _target,string(_data));
+        // console.logBytes(_data);
+
         require(_target != address(0), "target-invalid");
         assembly {
             let succeeded := delegatecall(
@@ -196,9 +205,11 @@ contract InstaAccount is Record {
                 "not-static-connector"
             );
         }
+
         for (uint256 i = 0; i < _targets.length; i++) {
             spell(_targets[i], _datas[i]);
         }
+
         address _check = indexContract.check(version);
         if (_check != address(0) && !isShield)
             require(CheckInterface(_check).isOk(), "not-ok");

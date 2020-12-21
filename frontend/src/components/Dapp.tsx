@@ -136,7 +136,7 @@ export class Dapp extends React.Component<Props> {
               this.state.smartAccounts &&
               <SmartAccountsList
                 smartAccounts={this.state.smartAccounts}
-                setActive={this._setSmartAccountActive}
+                setActive={this._setSmartAccountActive.bind(this)}
                 activeSmartAccount={this.state.activeSmartAccount}
               />
             }
@@ -145,7 +145,7 @@ export class Dapp extends React.Component<Props> {
             this.state.activeSmartAccount &&
             <SmartAccount
               address={this.state.activeSmartAccount}
-              checkAddressAuthorized={this._checkAddressAuthorized}
+              checkAddressAuthorized={this._checkAddressAuthorized.bind(this)}
             />
           }
         </div>
