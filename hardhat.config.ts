@@ -37,6 +37,12 @@ const config: HardhatUserConfig = {
       accounts: [{
         privateKey: "cdf26c00dd5d4b56edce92609c78f79fc272aee66a55e2aeef140e8a5dd74d1c",
         balance: ethers.utils.parseEther("10").toString(),
+      }, {
+        privateKey: "b83f06807cf81300b54dc375d30b70ee0b3673b3b7ec7f876bda9df0d9e5f22f",
+        balance: ethers.utils.parseEther("10").toString(),
+      }, {
+        privateKey: "e75b27bae8a270fecbb5b074acb17f6156c8503ef8c306d887ebc96aa6eeb092",
+        balance: ethers.utils.parseEther("10").toString(),
       }],
       forking: {
         url: infuraURL

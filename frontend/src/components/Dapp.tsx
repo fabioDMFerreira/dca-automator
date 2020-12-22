@@ -120,8 +120,6 @@ export class Dapp extends React.Component<Props> {
 
         <hr />
 
-        <h2>InstaDapp Manager</h2>
-
         <button
           className="btn btn-info"
           type="button"
@@ -246,7 +244,7 @@ export class Dapp extends React.Component<Props> {
     )
 
     this._instaAccount = new ethers.Contract(
-      contractAddresses.InstaAccount,
+      contractAddresses.DCAAccount,
       InstaAccountArtifact.abi,
       this._provider?.getSigner(0)
     )

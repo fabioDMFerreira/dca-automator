@@ -690,6 +690,6 @@ contract ConnectUniswapV2 is UniswapResolver {
         view
         returns (uint256 model, uint256 id)
     {
-        (model, id) = (0, 2);
+        (model, id) = (0, 3);
     }
 }
