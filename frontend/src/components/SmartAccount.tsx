@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 
 interface Props {
   address: string,
-  checkAddressAuthorized: (smartAccountAddress: string, addressToCheck: string) => Promise<boolean>
+  checkAddressAuthorized: (address: string) => Promise<boolean>
 }
 
 export default ({ address, checkAddressAuthorized }: Props) => {
@@ -27,12 +27,12 @@ export default ({ address, checkAddressAuthorized }: Props) => {
         <button
           className="btn btn-small btn-info"
           onClick={async () => {
-            const enabled = await checkAddressAuthorized(address || "", checkAddress || "")
+            const enabled = await checkAddressAuthorized(checkAddress || "")
 
             if (enabled) {
               setCheckAddressFeedback("Address is authorized!")
             } else {
-              setCheckAddressFeedback("Unfortunately, the address is authorized!")
+              setCheckAddressFeedback("Unfortunately, the address is not authorized!")
             }
           }}>
           Check
