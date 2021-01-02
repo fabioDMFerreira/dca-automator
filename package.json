@@ -8,7 +8,8 @@
     "launch-node": "hardhat node",
     "compile": "hardhat compile",
     "deploy-contracts": "hardhat run scripts/deploy.ts --network localhost",
-    "faucet": "hardhat faucet --network localhost"
+    "faucet": "hardhat faucet --network localhost",
+    "keeper": "hardhat run ./src/bin.ts --network localhost"
   },
   "author": "",
   "license": "ISC",

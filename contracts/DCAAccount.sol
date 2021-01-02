@@ -1,6 +1,25 @@
 pragma solidity ^0.6.12;
 pragma experimental ABIEncoderV2;
 
+import "hardhat/console.sol";
+
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {
+    AaveHelpers,
+    AaveInterface,
+    AaveDataProviderInterface
+} from "./ConnectAaveV2.sol";
+
+// import files from common directory
+import {
+    TokenInterface,
+    MemoryInterface,
+    EventInterface
+} from "./common/interfaces.sol";
+import {Stores} from "./common/stores.sol";
+import {DSMath} from "./common/math.sol";
+
 /**
  * @title DCAAccount.
  * @dev DeFi Smart Account Wallet.
@@ -52,14 +71,13 @@ contract Record {
     // Is shield true/false.
     bool public shield;
 
-    // smart contract of dca operation
-    address[] taskTargets;
-    // method and arguments in target smart contract to execute dca operation
-    bytes[] taskDatas;
+    uint256 public depositAmount;
+    // liquidity pool token
+    address public token;
     // timestamp value that must pass before executing another dca operation
-    uint256 taskPeriod;
+    uint256 public period;
     // timestamp of next dca operation
-    uint256 public taskTimeRef;
+    uint256 public timeRef;
 
     constructor() public {
         owner = msg.sender;
@@ -142,7 +160,195 @@ contract Record {
     }
 }
 
-contract DCAAccount is Record {
+contract DepositerWithdrawer is Stores {
+    event LogDeposit(
+        address indexed erc20,
+        uint256 tokenAmt,
+        uint256 getId,
+        uint256 setId
+    );
+    event LogWithdraw(
+        address indexed erc20,
+        uint256 tokenAmt,
+        address indexed to,
+        uint256 getId,
+        uint256 setId
+    );
+
+    using SafeERC20 for IERC20;
+
+    /**
+     * @dev Deposit Assets To Smart Account.
+     * @param erc20 Token Address.
+     * @param tokenAmt Token Amount.
+     * @param getId Get Storage ID.
+     * @param setId Set Storage ID.
+     */
+    function deposit(
+        address erc20,
+        uint256 tokenAmt,
+        uint256 getId,
+        uint256 setId
+    ) public payable {
+        uint256 amt = getUint(getId, tokenAmt);
+        if (erc20 != getEthAddr()) {
+            IERC20 token = IERC20(erc20);
+            amt = amt == uint256(-1) ? token.balanceOf(msg.sender) : amt;
+            token.safeTransferFrom(msg.sender, address(this), amt);
+        } else {
+            require(
+                msg.value == amt || amt == uint256(-1),
+                "invalid-ether-amount"
+            );
+            amt = msg.value;
+        }
+        setUint(setId, amt);
+
+        emit LogDeposit(erc20, amt, getId, setId);
+
+        bytes32 _eventCode =
+            keccak256("LogDeposit(address,uint256,uint256,uint256)");
+        bytes memory _eventParam = abi.encode(erc20, amt, getId, setId);
+        // need to generate insta event contract
+        // emitEvent(_eventCode, _eventParam);
+    }
+
+    /**
+     * @dev Withdraw Assets To Smart Account.
+     * @param erc20 Token Address.
+     * @param tokenAmt Token Amount.
+     * @param to Withdraw token address.
+     * @param getId Get Storage ID.
+     * @param setId Set Storage ID.
+     */
+    function withdraw(
+        address erc20,
+        uint256 tokenAmt,
+        address payable to,
+        uint256 getId,
+        uint256 setId
+    ) public payable {
+        // require(msg.sender == owner, "permission-denied");
+        uint256 amt = getUint(getId, tokenAmt);
+        if (erc20 == getEthAddr()) {
+            amt = amt == uint256(-1) ? address(this).balance : amt;
+            to.transfer(amt);
+        } else {
+            IERC20 token = IERC20(erc20);
+            amt = amt == uint256(-1) ? token.balanceOf(address(this)) : amt;
+            token.safeTransfer(to, amt);
+        }
+        setUint(setId, amt);
+
+        emit LogWithdraw(erc20, amt, to, getId, setId);
+
+        bytes32 _eventCode =
+            keccak256("LogWithdraw(address,uint256,address,uint256,uint256)");
+        bytes memory _eventParam = abi.encode(erc20, amt, to, getId, setId);
+        // need to generate insta event contract
+        //emitEvent(_eventCode, _eventParam);
+    }
+}
+
+contract LiquidityPoolDepositerWithdrawer is AaveHelpers {
+    event LogLiquidityPoolDeposit(
+        address indexed token,
+        uint256 tokenAmt,
+        uint256 getId,
+        uint256 setId
+    );
+    event LogLiquidityPoolWithdraw(
+        address indexed token,
+        uint256 tokenAmt,
+        uint256 getId,
+        uint256 setId
+    );
+
+    /**
+     * @dev Deposit ETH/ERC20_Token.
+     * @param token token address to deposit.(For ETH: 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE)
+     * @param amt token amount to deposit.
+     * @param getId Get token amount at this ID from `InstaMemory` Contract.
+     * @param setId Set token amount at this ID in `InstaMemory` Contract.
+     */
+    function depositLiquidityPool(
+        address token,
+        uint256 amt,
+        uint256 getId,
+        uint256 setId
+    ) public payable {
+        uint256 _amt = getUint(getId, amt);
+
+        AaveInterface aave = AaveInterface(getAaveProvider().getLendingPool());
+        AaveDataProviderInterface aaveData = getAaveDataProvider();
+
+        bool isEth = token == getEthAddr();
+        address _token = isEth ? getWethAddr() : token;
+
+        TokenInterface tokenContract = TokenInterface(_token);
+
+        if (isEth) {
+            _amt = _amt == uint256(-1) ? address(this).balance : _amt;
+            convertEthToWeth(isEth, tokenContract, _amt);
+        } else {
+            _amt = _amt == uint256(-1)
+                ? tokenContract.balanceOf(address(this))
+                : _amt;
+        }
+
+        tokenContract.approve(address(aave), _amt);
+
+        aave.deposit(_token, _amt, address(this), getReferralCode());
+
+        if (!getIsColl(aaveData, _token, address(this))) {
+            aave.setUserUseReserveAsCollateral(_token, true);
+        }
+
+        setUint(setId, _amt);
+
+        emit LogLiquidityPoolDeposit(token, _amt, getId, setId);
+    }
+
+    /**
+     * @dev Withdraw ETH/ERC20_Token.
+     * @param token token address to withdraw.(For ETH: 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE)
+     * @param amt token amount to withdraw.
+     * @param getId Get token amount at this ID from `InstaMemory` Contract.
+     * @param setId Set token amount at this ID in `InstaMemory` Contract.
+     */
+    function withdrawLiquidityPool(
+        address token,
+        uint256 amt,
+        uint256 getId,
+        uint256 setId
+    ) public payable {
+        uint256 _amt = getUint(getId, amt);
+
+        AaveInterface aave = AaveInterface(getAaveProvider().getLendingPool());
+        bool isEth = token == getEthAddr();
+        address _token = isEth ? getWethAddr() : token;
+
+        TokenInterface tokenContract = TokenInterface(_token);
+
+        uint256 initialBal = tokenContract.balanceOf(address(this));
+        aave.withdraw(_token, _amt, address(this));
+        uint256 finalBal = tokenContract.balanceOf(address(this));
+
+        _amt = sub(finalBal, initialBal);
+
+        convertWethToEth(isEth, tokenContract, _amt);
+
+        setUint(setId, _amt);
+
+        emit LogLiquidityPoolWithdraw(token, _amt, getId, setId);
+    }
+}
+
+contract DCAAccount is
+    Record,
+    DepositerWithdrawer,
+    LiquidityPoolDepositerWithdrawer
+{
     event LogCast(
         address indexed origin,
         address indexed sender,
@@ -151,115 +357,30 @@ contract DCAAccount is Record {
 
     receive() external payable {}
 
-    function initialize(uint256 _period) external {
+    function initialize(
+        address _token,
+        uint256 _depositAmount,
+        uint256 _period
+    ) external {
         require(msg.sender == instaIndex, "permission-denied");
 
-        taskPeriod = _period;
-        taskTimeRef = block.timestamp + _period;
+        token = _token;
+        depositAmount = _depositAmount;
+        period = _period;
+        timeRef = block.timestamp + _period;
     }
 
-    function dca(
-        address[] calldata _targets,
-        bytes[] calldata _datas,
-        address _origin
-    ) external payable {
+    function dca(address _origin) external payable {
         require(
             isAuth(msg.sender) || msg.sender == instaIndex,
             "permission-denied"
         );
-        require(taskTimeRef < block.timestamp , "not permited yet");
-        require(_targets.length == _datas.length, "array-length-invalid");
-        bool isShield = shield;
-        IndexInterface indexContract = IndexInterface(instaIndex);
-        if (!isShield) {
-            require(
-                ConnectorsInterface(indexContract.connectors(version))
-                    .isConnector(_targets),
-                "not-connector"
-            );
-        } else {
-            require(
-                ConnectorsInterface(indexContract.connectors(version))
-                    .isStaticConnector(_targets),
-                "not-static-connector"
-            );
-        }
+        require(timeRef < block.timestamp, "not permited yet");
 
-        for (uint256 i = 0; i < _targets.length; i++) {
-            spell(_targets[i], _datas[i]);
-        }
+        depositLiquidityPool(token, depositAmount, 0, 0);
 
-        taskTimeRef = taskTimeRef + taskPeriod;
+        timeRef = block.timestamp + period;
 
-        emit LogCast(_origin, msg.sender, msg.value);
-    }
-
-    /**
-     * @dev Delegate the calls to Connector And this function is ran by cast().
-     * @param _target Target to of Connector.
-     * @param _data CallData of function in Connector.
-     */
-    function spell(address _target, bytes memory _data) internal {
-        // console.log("DCAAccount.spell %s %s", _target,string(_data));
-        // console.logBytes(_data);
-
-        require(_target != address(0), "target-invalid");
-        assembly {
-            let succeeded := delegatecall(
-                gas(),
-                _target,
-                add(_data, 0x20),
-                mload(_data),
-                0,
-                0
-            )
-
-            switch iszero(succeeded)
-                case 1 {
-                    // throw if delegatecall failed
-                    let size := returndatasize()
-                    returndatacopy(0x00, 0x00, size)
-                    revert(0x00, size)
-                }
-        }
-    }
-
-    /**
-     * @dev This is the main function, Where all the different functions are called
-     * from Smart Account.
-     * @param _targets Array of Target(s) to of Connector.
-     * @param _datas Array of Calldata(S) of function.
-     */
-    function cast(
-        address[] calldata _targets,
-        bytes[] calldata _datas,
-        address _origin
-    ) external payable {
-        require(isAuth(msg.sender) || msg.sender == instaIndex, "permission-denied");
-        require(_targets.length == _datas.length, "array-length-invalid");
-        IndexInterface indexContract = IndexInterface(instaIndex);
-        bool isShield = shield;
-        if (!isShield) {
-            require(
-                ConnectorsInterface(indexContract.connectors(version))
-                    .isConnector(_targets),
-                "not-connector"
-            );
-        } else {
-            require(
-                ConnectorsInterface(indexContract.connectors(version))
-                    .isStaticConnector(_targets),
-                "not-static-connector"
-            );
-        }
-
-        for (uint256 i = 0; i < _targets.length; i++) {
-            spell(_targets[i], _datas[i]);
-        }
-
-        address _check = indexContract.check(version);
-        if (_check != address(0) && !isShield)
-            require(CheckInterface(_check).isOk(), "not-ok");
         emit LogCast(_origin, msg.sender, msg.value);
     }
 

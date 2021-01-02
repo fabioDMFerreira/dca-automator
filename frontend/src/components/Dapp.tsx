@@ -1,7 +1,10 @@
+import useAaveResolver from 'hooks/useAaveResolver';
 import useConnectWallet from 'hooks/useConnectWallet';
 import useLoadWallet from 'hooks/useLoadWallet';
 import useSmartAccounts from 'hooks/useSmartAccounts';
+import { formatTokenAmount } from 'lib/token';
 import React from 'react';
+import AddDCAContract from './AddDCAContract';
 
 import { ConnectWallet } from './ConnectWallet';
 import { Loading } from './Loading';
@@ -22,15 +25,26 @@ export default () => {
     balance,
     provider,
     contracts,
+    syncBalance,
   } = useLoadWallet(selectedAddress)
 
   const {
     smartAccounts,
+    loadingDCA,
     activeSmartAccount,
-    addSmartAccount,
+    loadingRefresh,
+    buildDCAAccount,
     selectSmartAccount,
-    checkAddressIsAuthorized
-  } = useSmartAccounts(provider, contracts, selectedAddress)
+    depositToken,
+    withdrawToken,
+    depositLiquidityPool,
+    withdrawLiquidityPool,
+    refresh
+  } = useSmartAccounts(provider, contracts, selectedAddress, syncBalance)
+
+  const {
+    tokens
+  } = useAaveResolver();
 
   // Ethereum wallets inject the window.ethereum object. If it hasn't been
   // injected, we instruct the user to install MetaMask.
@@ -57,43 +71,47 @@ export default () => {
   return (
     <div className="container p-4">
       <div className="row">
-        <div className="col-12">
+        <div className="col-4">
           <p>
-            Address: {selectedAddress}
+            {selectedAddress}
           </p>
-          <p>ETH: {balance}</p>
-        </div>
-      </div>
-
-      <hr />
-
-      <button
-        className="btn btn-info"
-        type="button"
-        onClick={() => addSmartAccount()}
-      >
-        + Add Smart Account
-    </button>
-
-      <div className="row mt-4">
-        <div className="col-6">
           {
-            smartAccounts &&
-            <SmartAccountsList
-              smartAccounts={smartAccounts}
-              setActive={selectSmartAccount}
-              activeSmartAccount={activeSmartAccount}
-            />
+            balance &&
+            <p>{formatTokenAmount(+balance)}ETH</p>
           }
         </div>
-        {
-          activeSmartAccount &&
-          <SmartAccount
-            address={activeSmartAccount}
-            checkAddressAuthorized={checkAddressIsAuthorized}
+        <div className="col-8 ">
+          <AddDCAContract
+            buildDCAContract={buildDCAAccount}
+            tokens={tokens}
           />
-        }
+        </div>
       </div>
-    </div>
+
+      <button className="btn btn-info" disabled={loadingRefresh} onClick={refresh}>Refresh</button>
+
+      {
+        smartAccounts &&
+        <div className="mb-4">
+          <SmartAccountsList
+            smartAccounts={smartAccounts}
+            setActive={selectSmartAccount}
+            activeSmartAccount={activeSmartAccount?.address}
+            loading={loadingDCA}
+          />
+        </div>
+      }
+
+      {
+        activeSmartAccount &&
+        <SmartAccount
+          account={activeSmartAccount}
+          depositToken={depositToken}
+          withdrawToken={withdrawToken}
+          depositLiquidityPool={depositLiquidityPool}
+          withdrawLiquidityPool={withdrawLiquidityPool}
+        />
+      }
+    </div >
   );
 }

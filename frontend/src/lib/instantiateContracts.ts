@@ -5,11 +5,12 @@ import contractAddresses from "../contracts/contract-address.json";
 import InstaIndexArtifact from "../contracts/InstaIndex.json";
 import InstaListArtifact from "../contracts/InstaList.json";
 import DCAAccountArtifact from "../contracts/DCAAccount.json";
-
+import InstaDSAResolverArtifact from "../contracts/InstaDSAResolver.json";
 export interface Contracts {
   instaIndex: Contract,
   instaList: Contract,
-  dcaAccount: Contract
+  dcaAccount: Contract,
+  dsaResolver: Contract,
 }
 
 export default (provider: ethers.providers.Web3Provider) => {
@@ -30,6 +31,12 @@ export default (provider: ethers.providers.Web3Provider) => {
       contractAddresses.DCAAccount,
       DCAAccountArtifact.abi,
       provider?.getSigner(0)
-    )
+    ),
+
+    dsaResolver: new ethers.Contract(
+      contractAddresses.InstaDSAResolver,
+      InstaDSAResolverArtifact.abi,
+      provider?.getSigner(0)
+    ),
   }
 }

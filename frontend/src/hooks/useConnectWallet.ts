@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 // This is the Buidler EVM network id, you might change it in the buidler.config.js
 // Here's a list of network ids https://docs.metamask.io/guide/ethereum-provider.html#properties
@@ -10,14 +10,22 @@ export default () => {
   const [isConnectingWallet, setConnectingWallet] = useState<boolean>(false)
   const [networkError, setNetworkError] = useState<string>("")
 
+  useEffect(() => {
+    if (selectedAddress) {
+      checkNetwork()
+    }
+  }, [selectedAddress])
+
+  useEffect(() => {
+    connectWallet();
+  }, [])
+
   async function connectWallet() {
     setConnectingWallet(true)
 
     const [address] = await window.ethereum.enable();
 
     setSelectedAddress(address)
-
-    checkNetwork()
 
     setConnectingWallet(false)
   }
@@ -52,8 +60,6 @@ export default () => {
     }
 
     setSelectedAddress(newAddress)
-
-    checkNetwork()
   });
 
   // We reset the dapp state if the network is changed

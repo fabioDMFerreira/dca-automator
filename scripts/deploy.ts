@@ -38,6 +38,7 @@ async function main() {
     contract: instaIndex,
     name: "InstaIndex"
   });
+  await instaIndex.deployed();
 
   let instaListFactory = await ethers.getContractFactory("InstaList")
   let instaList = await instaListFactory.deploy();
@@ -74,16 +75,32 @@ async function main() {
     name: "ConnectAaveV2"
   });
 
-  // We also save the contract's artifacts and address in the frontend directory
-  saveFrontendFiles(contracts);
-
   await setInstaIndexBasics(deployerAddress, contracts);
+
+  let instaDSAResolverFactory = await ethers.getContractFactory("InstaDSAResolver")
+  let instaDSAResolver = await instaDSAResolverFactory.deploy(instaIndex.address, []);
+  contracts.push({
+    contract: instaDSAResolver,
+    name: "InstaDSAResolver"
+  });
+  await instaDSAResolver.deployed();
+
+  let aaveResolverFactory = await ethers.getContractFactory("InstaAaveV2Resolver")
+  let aaveResolver = await aaveResolverFactory.deploy();
+  contracts.push({
+    contract: aaveResolver,
+    name: "InstaAaveV2Resolver"
+  });
+
+  // We also save the contract's artifacts and address in the frontend directory
+  generateArtifacts(contracts, __dirname + "/../frontend/src/contracts");
+  generateArtifacts(contracts, __dirname + "/../src/contracts");
+
   await buildSmartAccount(deployerAddress, contracts);
 }
 
-function saveFrontendFiles(contracts: ContractContainer[]) {
+function generateArtifacts(contracts: ContractContainer[], contractsDir: string) {
   const fs = require("fs");
-  const contractsDir = __dirname + "/../frontend/src/contracts";
 
   if (!fs.existsSync(contractsDir)) {
     fs.mkdirSync(contractsDir);
@@ -93,6 +110,7 @@ function saveFrontendFiles(contracts: ContractContainer[]) {
     contractsDir + "/contract-address.json",
     JSON.stringify(
       contracts.reduce((obj: any, contractContainer: ContractContainer) => {
+        console.log(`${contractContainer.name}:${contractContainer.contract.address}`)
         obj[contractContainer.name] = contractContainer.contract.address;
         return obj;
       }, {}), undefined, 2
@@ -105,6 +123,11 @@ function saveFrontendFiles(contracts: ContractContainer[]) {
       contractsDir + `/${contract.name}.json`
     );
   })
+
+  fs.copyFileSync(
+    __dirname + `/../artifacts/@openzeppelin/contracts/token/ERC20/IERC20.sol/IERC20.json`,
+    contractsDir + `/IERC20.json`
+  );
 }
 
 async function setInstaIndexBasics(signerAddress: string, contracts: ContractContainer[]) {
@@ -129,7 +152,7 @@ async function buildSmartAccount(signerAddress: string, contracts: ContractConta
   const instaIndex = getContractByName("InstaIndex", contracts);
 
   const currentVersion = await instaIndex.versionCount()
-  await instaIndex.build(signerAddress, currentVersion, 3600000, signerAddress)
+  await instaIndex.build(signerAddress, currentVersion, "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE", ethers.utils.parseEther("0.1"), 60, signerAddress)
 }
 
 function getContractByName(name: string, contracts: ContractContainer[]) {

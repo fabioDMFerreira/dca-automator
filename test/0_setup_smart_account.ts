@@ -4,7 +4,6 @@ import { Contract, utils } from "ethers";
 import { ethers, waffle } from 'hardhat';
 
 import DCAAccountABI from '../artifacts/contracts/DCAAccount.sol/DCAAccount.json'
-import ConnectBasicABI from '../artifacts/contracts/ConnectBasic.sol/ConnectBasic.json'
 import IERC20ABI from '../artifacts/@openzeppelin/contracts/token/ERC20/IERC20.sol/IERC20.json'
 
 describe("Setup smart account", () => {
@@ -106,11 +105,13 @@ describe("Setup smart account", () => {
 
     const currentTimestamp = 1608572844070;
     const period = 60 * 60;
+    const token = daiAddress;
+    const depositAmount = ethers.utils.parseEther("100");
 
     await waffle.provider.send("evm_setNextBlockTimestamp", [currentTimestamp]);
 
     await expect(
-      instaIndex.build(signerAddress, currentVersion, period, signerAddress)
+      instaIndex.build(signerAddress, currentVersion, token, depositAmount, period, signerAddress)
     )
       .to.emit(instaIndex, "LogAccountCreated")
       .withArgs(signerAddress, signerAddress, smartAccountAddress, signerAddress)
@@ -125,14 +126,20 @@ describe("Setup smart account", () => {
       await smartAccount.isAuth(signerAddress)
     ).to.be.equal(true)
 
-    const nextDCA = await smartAccount.taskTimeRef()
+    const nextDCA = await smartAccount.timeRef()
     expect(nextDCA).to.equal(currentTimestamp + period);
+
+    const accountToken = await smartAccount.token()
+    expect(accountToken.toLowerCase()).to.equal(token);
+
+    const accountDepositAmount = await smartAccount.depositAmount()
+    expect(accountDepositAmount).to.equal(depositAmount);
   })
 
   it("resolver should get smart accounts addresses", async () => {
-    const accounts = await instaDSAResolver.getAuthorityDetails(signerAddress)
+    const accounts = await instaDSAResolver.getAuthorityAccounts(signerAddress)
 
-    expect(accounts.filter((a: any[]) => typeof a[0] == 'string')[0][0]).to.equal(smartAccountAddress)
+    expect(accounts[0]).to.equal(smartAccountAddress)
   })
 
   it("deposit eth to smart account", async () => {
@@ -150,10 +157,14 @@ describe("Setup smart account", () => {
       greaterThan(rangeLow).
       lessThan(rangeHigh)
 
-    await signer.sendTransaction({
-      to: smartAccountAddress,
+    await smartAccount.deposit(
+      ethAddress,
+      ethers.utils.parseEther("3"),
+      0,
+      0, {
       value: ethers.utils.parseEther("3")
-    })
+    }
+    )
 
     await expect(
       await ethers.provider.getBalance(smartAccountAddress)
@@ -177,21 +188,13 @@ describe("Setup smart account", () => {
       greaterThan(rangeLow).
       lessThan(rangeHigh)
 
-    const targets = [connectBasic.address];
-    const datas = [
-      encodeBasicConnectSpell(
-        "withdraw",
-        [
-          ethAddress,
-          ethers.utils.parseEther("0.5").toString(),
-          signerAddress,
-          0,
-          0
-        ]
-      )
-    ];
-
-    await smartAccount.cast(targets, datas, signerAddress)
+    await smartAccount.withdraw(
+      ethAddress,
+      ethers.utils.parseEther("0.5").toString(),
+      signerAddress,
+      0,
+      0
+    )
 
     await expect(
       await ethers.provider.getBalance(smartAccountAddress)
@@ -208,10 +211,3 @@ describe("Setup smart account", () => {
 
 })
 
-function encodeBasicConnectSpell(method: string, args: any[]) {
-  const ifc = new utils.Interface(ConnectBasicABI.abi)
-
-  const funcFrags = ifc.getFunction(method)
-
-  return ifc.encodeFunctionData(funcFrags, args);
-}

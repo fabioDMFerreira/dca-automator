@@ -97,7 +97,7 @@ describe("Aave", () => {
     let currentVersion = await instaIndex.versionCount()
     const period = 60 * 60;
     await expect(
-      instaIndex.build(signerAddress, currentVersion, period, signerAddress)
+      instaIndex.build(signerAddress, currentVersion, ethAddress, ethers.utils.parseEther("0.5"), period, signerAddress)
     ).to.emit(instaIndex, "LogAccountCreated")
       .withArgs(signerAddress, signerAddress, smartAccountAddress, signerAddress)
 
@@ -123,22 +123,13 @@ describe("Aave", () => {
       greaterThan(rangeLow).
       lessThan(rangeHigh)
 
-    const targets = [aave.address];
-    const datas = [
-      encodeAaveSpell(
-        "deposit",
-        [
-          ethAddress,
-          ethers.utils.parseEther("1"),
-          0,
-          0
-        ]
-      )
-    ];
-
     await expect(
-      smartAccount.cast(targets, datas, signerAddress)
-    ).to.emit(smartAccount, "LogCast")
+      smartAccount.depositLiquidityPool(
+        ethAddress,
+        ethers.utils.parseEther("1"),
+        0,
+        0)
+    ).to.emit(smartAccount, "LogLiquidityPoolDeposit")
 
     const smartAccountBalanceAfterDeposit = +ethers.utils.formatEther(await ethers.provider.getBalance(smartAccountAddress))
     expect(
@@ -183,22 +174,12 @@ describe("Aave", () => {
       greaterThan(rangeLow).
       lessThan(rangeHigh)
 
-    const targets = [aave.address];
-    const datas = [
-      encodeAaveSpell(
-        "withdraw",
-        [
-          ethAddress,
-          ethers.utils.parseEther("0.5"),
-          0,
-          0
-        ]
-      )
-    ];
-
     await expect(
-      smartAccount.cast(targets, datas, signerAddress)
-    ).to.emit(smartAccount, "LogCast")
+      smartAccount.withdrawLiquidityPool(  ethAddress,
+        ethers.utils.parseEther("0.5"),
+        0,
+        0)
+    ).to.emit(smartAccount, "LogLiquidityPoolWithdraw")
 
     const smartAccountBalanceAfterDeposit = +ethers.utils.formatEther(await ethers.provider.getBalance(smartAccountAddress))
     expect(
@@ -217,11 +198,3 @@ describe("Aave", () => {
   })
 
 })
-
-function encodeAaveSpell(method: string, args: any[]) {
-  const ifc = new utils.Interface(ConnectAaveABI.abi)
-
-  const funcFrags = ifc.getFunction(method)
-
-  return ifc.encodeFunctionData(funcFrags, args);
-}

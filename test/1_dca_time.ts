@@ -97,7 +97,7 @@ describe("DCA time", () => {
     let currentVersion = await instaIndex.versionCount()
     const period = 60 * 60;
     await expect(
-      instaIndex.build(signerAddress, currentVersion, period, signerAddress)
+      instaIndex.build(signerAddress, currentVersion, ethAddress, ethers.utils.parseEther("0.5"), period, signerAddress)
     ).to.emit(instaIndex, "LogAccountCreated")
       .withArgs(signerAddress, signerAddress, smartAccountAddress, signerAddress)
 
@@ -114,21 +114,8 @@ describe("DCA time", () => {
   })
 
   it("should fail executing dca operation if current timestamp is prior to contract time reference", async () => {
-    const targets = [aave.address];
-    const datas = [
-      encodeBasicConnectSpell(
-        "deposit",
-        [
-          ethAddress,
-          ethers.utils.parseEther("0.5"),
-          0,
-          0
-        ]
-      )
-    ];
-
     await expect(
-      smartAccount.dca(targets, datas, signerAddress)
+      smartAccount.dca(signerAddress)
     ).to.be.revertedWith("not permited yet")
 
   })
@@ -143,38 +130,26 @@ describe("DCA time", () => {
       greaterThan(rangeLow).
       lessThan(rangeHigh)
 
-    const targets = [connectBasic.address];
-    const datas = [
-      encodeBasicConnectSpell(
-        "withdraw",
-        [
-          ethAddress,
-          ethers.utils.parseEther("0.8").toString(),
-          signerAddress,
-          0,
-          0
-        ]
-      )
-    ];
+    const timeRef = await smartAccount.timeRef();
 
-    const timeRef = await smartAccount.taskTimeRef();
+    const blockTimestamp = +timeRef + 1
 
-    await waffle.provider.send("evm_setNextBlockTimestamp", [+timeRef + 1]);
+    await waffle.provider.send("evm_setNextBlockTimestamp", [blockTimestamp]);
 
     await expect(
-      smartAccount.dca(targets, datas, signerAddress)
+      smartAccount.dca(signerAddress)
     ).to.emit(smartAccount, "LogCast")
 
-    const newTimeRef = await smartAccount.taskTimeRef();
+    const newTimeRef = await smartAccount.timeRef();
 
-    expect(+newTimeRef.toString()).to.equal(+timeRef + (60 * 60))
+    expect(+newTimeRef.toString()).to.equal(+blockTimestamp + (60 * 60))
 
     const smartAccountBalanceAfterWithdrawal = +ethers.utils.formatEther(await ethers.provider.getBalance(smartAccountAddress))
     expect(
       smartAccountBalanceAfterWithdrawal
     ).to.
-      greaterThan(rangeLow - 0.8).
-      lessThan(rangeHigh - 0.8)
+      greaterThan(rangeLow - 0.5).
+      lessThan(rangeHigh - 0.5)
 
   })
 

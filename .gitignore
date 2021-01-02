@@ -1,7 +1,10 @@
 node_modules
 
-#Buidler files
+# Buidler files
 cache
 artifacts
+
+# Contracts
+src/contracts
 
 .env
