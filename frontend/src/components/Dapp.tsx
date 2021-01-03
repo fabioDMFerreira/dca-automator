@@ -56,7 +56,7 @@ export default () => {
     return <Loading />;
   }
 
-  if (!selectedAddress) {
+  if (!selectedAddress || networkError) {
     return (
       <ConnectWallet
         connectWallet={connectWallet}
@@ -65,8 +65,6 @@ export default () => {
       />
     );
   }
-
-
 
   return (
     <div className="container p-4">

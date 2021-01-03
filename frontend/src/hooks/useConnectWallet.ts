@@ -11,13 +11,8 @@ export default () => {
   const [networkError, setNetworkError] = useState<string>("")
 
   useEffect(() => {
-    if (selectedAddress) {
-      checkNetwork()
-    }
-  }, [selectedAddress])
-
-  useEffect(() => {
     connectWallet();
+    checkNetwork();
   }, [])
 
   async function connectWallet() {
@@ -33,6 +28,7 @@ export default () => {
   async function checkNetwork() {
     const chainID = await window.ethereum.request({ method: 'net_version' })
     if (chainID === HARDHAT_EVM_CHAIN_ID) {
+      setNetworkError("")
       return true;
     }
 
@@ -51,6 +47,8 @@ export default () => {
 
   // We reinitialize it whenever the user changes their account.
   window.ethereum.on("accountsChanged", ([newAddress]: string[]) => {
+    checkNetwork()
+
     // `accountsChanged` event can be triggered with an undefined newAddress.
     // This happens when the user removes the Dapp from the "Connected
     // list of sites allowed access to your addresses" (Metamask > Settings > Connections)
@@ -64,7 +62,9 @@ export default () => {
 
   // We reset the dapp state if the network is changed
   window.ethereum.on("networkChanged", ([networkId]: string[]) => {
-    setSelectedAddress("")
+    checkNetwork();
+    setSelectedAddress("");
+    connectWallet();
   });
 
   return {

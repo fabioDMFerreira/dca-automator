@@ -8,3 +8,5 @@ artifacts
 src/contracts
 
 .env
+
+frontend/debug.log
