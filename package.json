@@ -7,12 +7,11 @@
     "test": "hardhat test --network hardhat",
     "launch-node": "hardhat node",
     "compile": "hardhat compile",
-    "deploy-contracts": "hardhat run scripts/deploy.ts --network localhost",
-    "faucet": "hardhat faucet --network localhost",
+    "deploy-contracts": "hardhat run scripts/deploy-contracts/index.ts --network localhost",
+    "seed": "hardhat run ./scripts/accounts-seed/index.ts --network localhost",
     "keeper": "hardhat run ./src/bin.ts --network localhost",
-    "seed": "hardhat run ./scripts/seed.ts --network localhost",
-    "test-deploy-contracts": "hardhat run scripts/deploy.ts --network kovan",
-    "test-keeper": "hardhat run ./src/bin.ts --network kovan"
+    "kovan-deploy-contracts": "hardhat run scripts/deploy.ts --network kovan",
+    "kovan-keeper": "hardhat run ./src/bin.ts --network kovan"
   },
   "author": "",
   "license": "ISC",
