@@ -49,6 +49,10 @@ export default ({ activeSmartAccount, smartAccounts, setActive, loading }: Props
       </tbody>
     </table>
     {
+      loading &&
+      <div className="spinner-border" role="status" />
+    }
+    {
       !smartAccounts || !smartAccounts.length && !loading &&
       <h5 className="text-secondary">
         <em>Create your first DCA contract.</em>
