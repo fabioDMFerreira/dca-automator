@@ -1,4 +1,5 @@
 import { network, ethers } from 'hardhat';
+import console from '../console';
 import ContractsList from '../ContractsList';
 
 // This is a script for deploying your contracts. You can adapt it to deploy

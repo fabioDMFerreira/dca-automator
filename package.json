@@ -7,8 +7,8 @@
     "test": "hardhat test --network hardhat",
     "launch-node": "hardhat node",
     "compile": "hardhat compile",
-    "deploy-contracts": "hardhat run scripts/deploy-contracts/index.ts --network localhost",
-    "seed": "hardhat run ./scripts/accounts-seed/index.ts --network localhost",
+    "deploy-contracts": "cross-env DEBUG=true hardhat run scripts/deploy-contracts/index.ts --network localhost",
+    "seed": "cross-env DEBUG=true hardhat run ./scripts/accounts-seed/index.ts --network localhost",
     "keeper": "hardhat run ./src/bin.ts --network localhost",
     "kovan-deploy-contracts": "hardhat run scripts/deploy.ts --network kovan",
     "kovan-keeper": "hardhat run ./src/bin.ts --network kovan"
@@ -24,6 +24,7 @@
     "@types/mocha": "^8.0.3",
     "@types/node": "^14.11.2",
     "chai": "^4.2.0",
+    "cross-env": "^7.0.3",
     "dotenv": "^8.2.0",
     "ethereum-waffle": "^3.2.1",
     "ethers": "^5.0.14",

@@ -1,5 +1,6 @@
-import { network, ethers } from 'hardhat';
+import { ethers } from 'hardhat';
 import { Contract } from 'ethers';
+import console from './console';
 
 export interface ContractContainer {
   name: string,

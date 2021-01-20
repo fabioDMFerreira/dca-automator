@@ -5,6 +5,7 @@ import { ethers, waffle } from 'hardhat';
 
 import DCAAccountABI from '../artifacts/contracts/DCAAccount.sol/DCAAccount.json'
 import IERC20ABI from '../artifacts/@openzeppelin/contracts/token/ERC20/IERC20.sol/IERC20.json'
+import { deployContracts } from "../scripts/deploy-contracts/deploy-contracts";
 
 describe("Setup smart account", () => {
 
@@ -23,11 +24,6 @@ describe("Setup smart account", () => {
 
   // Resolvers
   let instaDSAResolver: Contract;
-  let aaveResolver: Contract;
-
-  // Connectors
-  let connectBasic: Contract;
-  let aave: Contract;
 
   // Tokens
   let dai: Contract;
@@ -42,57 +38,13 @@ describe("Setup smart account", () => {
 
     dai = await ethers.getContractAt(IERC20ABI.abi, daiAddress);
 
-    let instaIndexFactory = await ethers.getContractFactory("InstaIndex")
-    instaIndex = await instaIndexFactory.deploy();
+    const contracts = await deployContracts()
 
-    let instaListFactory = await ethers.getContractFactory("InstaList")
-    instaList = await instaListFactory.deploy();
-
-    let instaConnectorsFactory = await ethers.getContractFactory("InstaConnectors")
-    instaConnectors = await instaConnectorsFactory.deploy();
-
-    let dcaAccountFactory = await ethers.getContractFactory("DCAAccount")
-    dcaAccount = await dcaAccountFactory.deploy();
-
-    let connectBasicFactory = await ethers.getContractFactory("ConnectBasic")
-    connectBasic = await connectBasicFactory.deploy();
-
-    let aaveFactory = await ethers.getContractFactory("ConnectAaveV2")
-    aave = await aaveFactory.deploy();
-
-    await instaIndex.deployed()
-    await instaList.deployed()
-    await instaConnectors.deployed()
-    await dcaAccount.deployed()
-    await connectBasic.deployed()
-    await aave.deployed()
-
-    await instaIndex.setBasics(signerAddress, instaList.address, dcaAccount.address, instaConnectors.address)
-    await instaList.setIndex(instaIndex.address)
-    await dcaAccount.setIndex(instaIndex.address)
-    await instaConnectors.setIndex(instaIndex.address)
-
-    // Enable Connectors
-    await expect(
-      instaConnectors.enable(connectBasic.address)
-    )
-      .to.emit(instaConnectors, "LogEnable")
-      .withArgs(connectBasic.address)
-    await expect(
-      instaConnectors.enable(aave.address)
-    )
-      .to.emit(instaConnectors, "LogEnable")
-      .withArgs(aave.address)
-
-    // Instantiate Resolvers
-    let instaDSAResolverFactory = await ethers.getContractFactory("InstaDSAResolver")
-    instaDSAResolver = await instaDSAResolverFactory.deploy(instaIndex.address, []);
-
-    let aaveResolverFactory = await ethers.getContractFactory("InstaAaveV2Resolver")
-    aaveResolver = await aaveResolverFactory.deploy();
-
-
-    await instaDSAResolver.deployed()
+    instaIndex = contracts.getContractByName("InstaIndex");
+    instaList = contracts.getContractByName("InstaList");
+    instaConnectors = contracts.getContractByName("InstaConnectors");
+    dcaAccount = contracts.getContractByName("DCAAccount");
+    instaDSAResolver = contracts.getContractByName("InstaDSAResolver");
   })
 
   it("build smart account", async () => {
@@ -148,9 +100,9 @@ describe("Setup smart account", () => {
       await ethers.provider.getBalance(smartAccountAddress)
     ).to.equal("0")
 
-    const rangeLow = 9.5
+    const rangeLow = 999.5
     const signerBalance = +ethers.utils.formatEther(await ethers.provider.getBalance(signerAddress))
-    const rangeHigh = 10
+    const rangeHigh = 1000
     expect(
       signerBalance
     ).to.
@@ -179,9 +131,9 @@ describe("Setup smart account", () => {
   })
 
   it("withdraw eth from smart account", async () => {
-    const rangeLow = 6.5
+    const rangeLow = 996.5
     const signerBalance = +ethers.utils.formatEther(await ethers.provider.getBalance(signerAddress))
-    const rangeHigh = 7
+    const rangeHigh = 997
     expect(
       signerBalance
     ).to.

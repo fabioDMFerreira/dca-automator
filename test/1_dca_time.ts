@@ -1,11 +1,12 @@
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
 import { expect } from "chai"
-import { Contract, utils } from "ethers";
+import { Contract } from "ethers";
 import { ethers, waffle } from 'hardhat';
 
 import DCAAccountABI from '../artifacts/contracts/DCAAccount.sol/DCAAccount.json'
-import ConnectBasicABI from '../artifacts/contracts/ConnectBasic.sol/ConnectBasic.json'
 import IERC20ABI from '../artifacts/@openzeppelin/contracts/token/ERC20/IERC20.sol/IERC20.json'
+import { deployContracts } from "../scripts/deploy-contracts/deploy-contracts";
+import console from "../scripts/console";
 
 describe("DCA time", () => {
 
@@ -24,75 +25,28 @@ describe("DCA time", () => {
 
   // Resolvers
   let instaDSAResolver: Contract;
-  let aaveResolver: Contract;
-
-  // Connectors
-  let connectBasic: Contract;
-  let aave: Contract;
 
   // Tokens
   let dai: Contract;
 
   // Smart Account
   let smartAccount: Contract;
-  let smartAccountAddress = "0xFE3d243Ccf7f2153c2D596eD0c5EACbC01B1433A"; // instaIndex.createClone alawys generates this smartAccount address at first time
+  let smartAccountAddress = "0xeb2cA376e44deB977B79b2f24994275d3B443753"; // instaIndex.createClone alawys generates this smartAccount address at first time
 
   before(async () => {
-    [, signer] = await ethers.getSigners();
+    const signers = await ethers.getSigners();
+    signer = signers[1];
     signerAddress = await signer.getAddress()
 
     dai = await ethers.getContractAt(IERC20ABI.abi, daiAddress);
 
-    let instaIndexFactory = await ethers.getContractFactory("InstaIndex", { signer })
-    instaIndex = await instaIndexFactory.deploy();
+    const contracts = await deployContracts()
 
-    let instaListFactory = await ethers.getContractFactory("InstaList", { signer })
-    instaList = await instaListFactory.deploy();
-
-    let instaConnectorsFactory = await ethers.getContractFactory("InstaConnectors", { signer })
-    instaConnectors = await instaConnectorsFactory.deploy();
-
-    let dcaAccountFactory = await ethers.getContractFactory("DCAAccount", { signer })
-    dcaAccount = await dcaAccountFactory.deploy();
-
-    let connectBasicFactory = await ethers.getContractFactory("ConnectBasic", { signer })
-    connectBasic = await connectBasicFactory.deploy();
-
-    let aaveFactory = await ethers.getContractFactory("ConnectAaveV2", { signer })
-    aave = await aaveFactory.deploy();
-
-    await instaIndex.deployed()
-    await instaList.deployed()
-    await instaConnectors.deployed()
-    await dcaAccount.deployed()
-    await connectBasic.deployed()
-    await aave.deployed()
-
-    await instaIndex.setBasics(signerAddress, instaList.address, dcaAccount.address, instaConnectors.address)
-    await instaList.setIndex(instaIndex.address)
-    await dcaAccount.setIndex(instaIndex.address)
-    await instaConnectors.setIndex(instaIndex.address)
-
-    // Enable Connectors
-    await expect(
-      instaConnectors.enable(connectBasic.address)
-    )
-      .to.emit(instaConnectors, "LogEnable")
-      .withArgs(connectBasic.address)
-    await expect(
-      instaConnectors.enable(aave.address)
-    )
-      .to.emit(instaConnectors, "LogEnable")
-      .withArgs(aave.address)
-
-    // Instantiate Resolvers
-    let instaDSAResolverFactory = await ethers.getContractFactory("InstaDSAResolver")
-    instaDSAResolver = await instaDSAResolverFactory.deploy(instaIndex.address, []);
-
-    let aaveResolverFactory = await ethers.getContractFactory("InstaAaveV2Resolver")
-    aaveResolver = await aaveResolverFactory.deploy();
-
-    await instaDSAResolver.deployed()
+    instaIndex = contracts.getContractByName("InstaIndex").connect(signer);
+    instaList = contracts.getContractByName("InstaList").connect(signer);
+    instaConnectors = contracts.getContractByName("InstaConnectors").connect(signer);
+    dcaAccount = contracts.getContractByName("DCAAccount").connect(signer);
+    instaDSAResolver = contracts.getContractByName("InstaDSAResolver").connect(signer);
 
     let currentVersion = await instaIndex.versionCount()
     const period = 60 * 60;
@@ -151,14 +105,6 @@ describe("DCA time", () => {
       greaterThan(rangeLow - 0.5).
       lessThan(rangeHigh - 0.5)
 
-  }).timeout(60000)
+  }).timeout(30000)
 
 })
-
-function encodeBasicConnectSpell(method: string, args: any[]) {
-  const ifc = new utils.Interface(ConnectBasicABI.abi)
-
-  const funcFrags = ifc.getFunction(method)
-
-  return ifc.encodeFunctionData(funcFrags, args);
-}

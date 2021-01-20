@@ -6,6 +6,7 @@ import { ethers, waffle } from 'hardhat';
 import DCAAccountABI from '../artifacts/contracts/DCAAccount.sol/DCAAccount.json'
 import InstaIndexABI from '../artifacts/contracts/InstaIndex.sol/InstaIndex.json'
 import IERC20ABI from '../artifacts/@openzeppelin/contracts/token/ERC20/IERC20.sol/IERC20.json'
+import { deployContracts } from "../scripts/deploy-contracts/deploy-contracts";
 
 describe("Batch DCA", () => {
 
@@ -27,75 +28,31 @@ describe("Batch DCA", () => {
   let instaDSAResolver: Contract;
   let aaveResolver: Contract;
 
-  // Connectors
-  let connectBasic: Contract;
-  let aave: Contract;
-
   // Tokens
   let dai: Contract;
 
   // Smart Account
   let smartAccount: Contract;
-  let smartAccountAddress = "0xFE3d243Ccf7f2153c2D596eD0c5EACbC01B1433A"; // instaIndex.createClone alawys generates this smartAccount address at first time
-  let smartAccountAddress2 = "0x66e8Be1FBD59FB2433D0044D2870A6CbcF53df3D"; // instaIndex.createClone alawys generates this smartAccount address at first time
+  let smartAccountAddress = "0xeb2cA376e44deB977B79b2f24994275d3B443753"; // instaIndex.createClone alawys generates this smartAccount address at first time
+  let smartAccountAddress2 = "0x80841C54e87AA7c1fB00953aE0cdaa0ec8aE3Ee4"; // instaIndex.createClone alawys generates this smartAccount address at first time
 
 
   before(async () => {
-    [, signer, signer2] = await ethers.getSigners();
+    const signers = await ethers.getSigners();
+    signer = signers[1];
+    signer2 = signers[2];
     signerAddress = await signer.getAddress()
 
     dai = await ethers.getContractAt(IERC20ABI.abi, daiAddress);
 
-    let instaIndexFactory = await ethers.getContractFactory("InstaIndex", { signer })
-    instaIndex = await instaIndexFactory.deploy();
+    const contracts = await deployContracts()
 
-    let instaListFactory = await ethers.getContractFactory("InstaList", { signer })
-    instaList = await instaListFactory.deploy();
-
-    let instaConnectorsFactory = await ethers.getContractFactory("InstaConnectors", { signer })
-    instaConnectors = await instaConnectorsFactory.deploy();
-
-    let dcaAccountFactory = await ethers.getContractFactory("DCAAccount", { signer })
-    dcaAccount = await dcaAccountFactory.deploy();
-
-    let connectBasicFactory = await ethers.getContractFactory("ConnectBasic", { signer })
-    connectBasic = await connectBasicFactory.deploy();
-
-    let aaveFactory = await ethers.getContractFactory("ConnectAaveV2", { signer })
-    aave = await aaveFactory.deploy();
-
-    await instaIndex.deployed()
-    await instaList.deployed()
-    await instaConnectors.deployed()
-    await dcaAccount.deployed()
-    await connectBasic.deployed()
-    await aave.deployed()
-
-    await instaIndex.setBasics(signerAddress, instaList.address, dcaAccount.address, instaConnectors.address)
-    await instaList.setIndex(instaIndex.address)
-    await dcaAccount.setIndex(instaIndex.address)
-    await instaConnectors.setIndex(instaIndex.address)
-
-    // Enable Connectors
-    await expect(
-      instaConnectors.enable(connectBasic.address)
-    )
-      .to.emit(instaConnectors, "LogEnable")
-      .withArgs(connectBasic.address)
-    await expect(
-      instaConnectors.enable(aave.address)
-    )
-      .to.emit(instaConnectors, "LogEnable")
-      .withArgs(aave.address)
-
-    // Instantiate Resolvers
-    let instaDSAResolverFactory = await ethers.getContractFactory("InstaDSAResolver")
-    instaDSAResolver = await instaDSAResolverFactory.deploy(instaIndex.address, []);
-
-    let aaveResolverFactory = await ethers.getContractFactory("InstaAaveV2Resolver")
-    aaveResolver = await aaveResolverFactory.deploy();
-
-    await instaDSAResolver.deployed()
+    instaIndex = contracts.getContractByName("InstaIndex").connect(signer);
+    instaList = contracts.getContractByName("InstaList").connect(signer);
+    instaConnectors = contracts.getContractByName("InstaConnectors").connect(signer);
+    dcaAccount = contracts.getContractByName("DCAAccount").connect(signer);
+    instaDSAResolver = contracts.getContractByName("InstaDSAResolver").connect(signer);
+    aaveResolver = contracts.getContractByName("InstaAaveV2Resolver").connect(signer)
 
     let currentVersion = await instaIndex.versionCount();
     const period = 60 * 60;
