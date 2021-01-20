@@ -1,8 +1,6 @@
 pragma solidity ^0.6.0;
 pragma experimental ABIEncoderV2;
 
-import "hardhat/console.sol";
-
 // import files from common directory
 import { TokenInterface , MemoryInterface} from "./common/interfaces.sol";
 import { Stores } from "./common/stores.sol";
@@ -173,7 +171,6 @@ contract BasicResolver is AaveHelpers {
         TokenInterface tokenContract = TokenInterface(_token);
 
         uint initialBal = tokenContract.balanceOf(address(this));
-        console.log("%s %s %s",_token,_amt,initialBal);
         aave.withdraw(_token, _amt, address(this));
         uint finalBal = tokenContract.balanceOf(address(this));
 

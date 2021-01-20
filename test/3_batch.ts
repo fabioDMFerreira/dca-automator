@@ -4,16 +4,17 @@ import { Contract, utils } from "ethers";
 import { ethers, waffle } from 'hardhat';
 
 import DCAAccountABI from '../artifacts/contracts/DCAAccount.sol/DCAAccount.json'
-import ConnectBasicABI from '../artifacts/contracts/ConnectBasic.sol/ConnectBasic.json'
+import InstaIndexABI from '../artifacts/contracts/InstaIndex.sol/InstaIndex.json'
 import IERC20ABI from '../artifacts/@openzeppelin/contracts/token/ERC20/IERC20.sol/IERC20.json'
 
-describe("DCA time", () => {
+describe("Batch DCA", () => {
 
   const ethAddress = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE";
   const daiAddress = "0x6b175474e89094c44da98b954eedeac495271d0f";
 
   // Signer
   let signer: SignerWithAddress;
+  let signer2: SignerWithAddress;
   let signerAddress: string;
 
   // Contracts
@@ -36,9 +37,11 @@ describe("DCA time", () => {
   // Smart Account
   let smartAccount: Contract;
   let smartAccountAddress = "0xFE3d243Ccf7f2153c2D596eD0c5EACbC01B1433A"; // instaIndex.createClone alawys generates this smartAccount address at first time
+  let smartAccountAddress2 = "0x66e8Be1FBD59FB2433D0044D2870A6CbcF53df3D"; // instaIndex.createClone alawys generates this smartAccount address at first time
+
 
   before(async () => {
-    [, signer] = await ethers.getSigners();
+    [, signer, signer2] = await ethers.getSigners();
     signerAddress = await signer.getAddress()
 
     dai = await ethers.getContractAt(IERC20ABI.abi, daiAddress);
@@ -94,71 +97,71 @@ describe("DCA time", () => {
 
     await instaDSAResolver.deployed()
 
-    let currentVersion = await instaIndex.versionCount()
+    let currentVersion = await instaIndex.versionCount();
     const period = 60 * 60;
     await expect(
       instaIndex.build(signerAddress, currentVersion, ethAddress, ethers.utils.parseEther("0.5"), period, signerAddress)
     ).to.emit(instaIndex, "LogAccountCreated")
       .withArgs(signerAddress, signerAddress, smartAccountAddress, signerAddress)
 
+    currentVersion = await instaIndex.versionCount();
+    await expect(
+      instaIndex.build(signerAddress, currentVersion, ethAddress, ethers.utils.parseEther("0.5"), period, signerAddress)
+    ).to.emit(instaIndex, "LogAccountCreated")
+      .withArgs(signerAddress, signerAddress, smartAccountAddress2, signerAddress)
+
+
     await signer.sendTransaction({
       to: smartAccountAddress,
-      value: ethers.utils.parseEther("5")
+      value: ethers.utils.parseEther("2")
+    })
+
+    await signer.sendTransaction({
+      to: smartAccountAddress2,
+      value: ethers.utils.parseEther("2")
     })
 
     smartAccount = await ethers.getContractAt(DCAAccountABI.abi, smartAccountAddress, signer)
 
-    await expect(
-      await smartAccount.isAuth(signerAddress)
-    ).to.be.equal(true)
   })
 
   it("should fail executing dca operation if current timestamp is prior to contract time reference", async () => {
     await expect(
-      smartAccount.dca(signerAddress)
+      instaIndex.batchDCA([smartAccountAddress])
     ).to.be.revertedWith("not permited yet")
 
   })
 
   it("should execute dca operation if current timestamp is after time reference and update time reference accordingly", async () => {
-    const rangeLow = 4.9
-    const smartAccountBalance = +ethers.utils.formatEther(await ethers.provider.getBalance(smartAccountAddress))
-    const rangeHigh = 5.1
-    expect(
-      smartAccountBalance
-    ).to.
-      greaterThan(rangeLow).
-      lessThan(rangeHigh)
+    let instaIndexSigner2 = await ethers.getContractAt(InstaIndexABI.abi, instaIndex.address, signer2)
+    const currentAccount1Balance = await ethers.provider.getBalance(smartAccountAddress)
+    const currentAccount2Balance = await ethers.provider.getBalance(smartAccountAddress2)
 
     const timeRef = await smartAccount.timeRef();
 
-    const blockTimestamp = +timeRef + 1
+    const blockTimestamp = +timeRef + 10
 
     await waffle.provider.send("evm_setNextBlockTimestamp", [blockTimestamp]);
 
     await expect(
-      smartAccount.dca(signerAddress)
-    ).to.emit(smartAccount, "LogCast")
+      instaIndexSigner2.batchDCA([smartAccountAddress, smartAccountAddress2])
+    ).to.emit(instaIndexSigner2, "LogBatchDCACompleted")
 
     const newTimeRef = await smartAccount.timeRef();
 
     expect(+newTimeRef.toString()).to.equal(+blockTimestamp + (60 * 60))
 
-    const smartAccountBalanceAfterWithdrawal = +ethers.utils.formatEther(await ethers.provider.getBalance(smartAccountAddress))
+    const nextAccount1Balance = await ethers.provider.getBalance(smartAccountAddress)
+    const nextAccount2Balance = await ethers.provider.getBalance(smartAccountAddress2)
+
     expect(
-      smartAccountBalanceAfterWithdrawal
-    ).to.
-      greaterThan(rangeLow - 0.5).
-      lessThan(rangeHigh - 0.5)
+      +ethers.utils.formatEther(currentAccount1Balance) - 0.5
+    ).to.equal(+ethers.utils.formatEther(nextAccount1Balance))
+
+    expect(
+      +ethers.utils.formatEther(currentAccount2Balance) - 0.5
+    ).to.equal(+ethers.utils.formatEther(nextAccount2Balance))
 
   }).timeout(60000)
 
 })
-
-function encodeBasicConnectSpell(method: string, args: any[]) {
-  const ifc = new utils.Interface(ConnectBasicABI.abi)
-
-  const funcFrags = ifc.getFunction(method)
-
-  return ifc.encodeFunctionData(funcFrags, args);
-}

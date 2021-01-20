@@ -23,6 +23,9 @@ export default (provider: ethers.providers.Web3Provider | undefined, contracts: 
   useEffect(() => {
     setLoadingDCA(true);
 
+    setActiveSmartAccountAddress("");
+    setSmartAccounts([])
+
     getDCAAccounts()
       .then(async dcaAccounts => {
         setSmartAccounts(dcaAccounts)

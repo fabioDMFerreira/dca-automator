@@ -1,3 +1,4 @@
+import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address';
 import { network, ethers } from 'hardhat';
 import { Contract } from 'ethers';
 
@@ -19,7 +20,8 @@ async function main() {
   }
 
   // ethers is avaialble in the global scope
-  const [deployer] = await ethers.getSigners();
+  const signers = await ethers.getSigners();
+  const deployer = signers[0];
   const deployerAddress = await deployer.getAddress()
   console.log(
     "Deploying the contracts with the account:",
@@ -67,14 +69,6 @@ async function main() {
   });
   await dcaAccount.deployed().then(() => console.log("DCAAccount ready"))
 
-  // console.log("waiting contracts to be deployed")
-  // await Promise.all([
-  //   instaIndex.deployed().then(() => console.log("InstaIndex ready")),
-  //   instaList.deployed().then(() => console.log("InstaList ready")),
-  //   instaConnectors.deployed().then(() => console.log("InstaConnectors ready")),
-  //   dcaAccount.deployed().then(() => console.log("DCAAccount ready")),
-  // ])
-
   await setInstaIndexBasics(deployerAddress, contracts);
 
   console.log("Deploying InstaDSAResolver")
@@ -104,8 +98,13 @@ async function main() {
   generateArtifacts(contracts, __dirname + "/../src/contracts");
   generateArtifacts(contracts, __dirname + "/../last-artifacts-deployed/" + network.name);
 
-  console.log("Building dca account");
-  await buildSmartAccount(deployerAddress, contracts);
+  console.log("Building dca accounts");
+
+  await Promise.all(
+
+    signers.map(signer => {
+      return buildSmartAccounts(signer, contracts, getRndInteger(5, 15))
+    }))
 }
 
 function generateArtifacts(contracts: ContractContainer[], contractsDir: string) {
@@ -163,11 +162,40 @@ async function setInstaIndexBasics(signerAddress: string, contracts: ContractCon
   ])
 }
 
-async function buildSmartAccount(signerAddress: string, contracts: ContractContainer[]) {
+async function buildSmartAccounts(signer: SignerWithAddress, contracts: ContractContainer[], numberOfAccounts: number) {
+  const signerAddress = await signer.getAddress()
+
   const instaIndex = getContractByName("InstaIndex", contracts);
 
-  const currentVersion = await instaIndex.versionCount()
-  await instaIndex.build(signerAddress, currentVersion, "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE", ethers.utils.parseEther("0.1"), 60, signerAddress)
+
+  for (let i = 0; i < numberOfAccounts; i++) {
+    const depositAmount = getRndFloat(0.01, 5)
+    const period = getRndInteger(60, 1800)
+    const currentVersion = await instaIndex.versionCount()
+    const tx = await instaIndex.build(signerAddress, currentVersion, "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE", ethers.utils.parseEther(depositAmount.toString()), period, signerAddress)
+    await tx.wait()
+  }
+
+  const dsaResolver = getContractByName("InstaDSAResolver", contracts);
+
+  const accounts = await dsaResolver.getAuthorityAccounts(signerAddress);
+
+  await Promise.all(accounts.map(
+    (account: string) => {
+      return signer.sendTransaction({
+        to: account,
+        value: ethers.utils.parseEther("15")
+      })
+    }
+  ))
+}
+
+function getRndInteger(min: number, max: number) {
+  return Math.floor(Math.random() * (max - min)) + min;
+}
+
+function getRndFloat(min: number, max: number) {
+  return Math.random() * (max - min) + min;
 }
 
 function getContractByName(name: string, contracts: ContractContainer[]) {

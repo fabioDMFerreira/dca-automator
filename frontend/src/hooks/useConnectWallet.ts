@@ -5,10 +5,17 @@ import { useEffect, useState } from 'react';
 // to use when deploying to other networks.
 const HARDHAT_EVM_CHAIN_ID = '1337';
 
+const networks: { [key: string]: string } = {
+  '42': 'Kovan',
+  [HARDHAT_EVM_CHAIN_ID]: 'Localhost:8545'
+}
+
 export default () => {
   const [selectedAddress, setSelectedAddress] = useState<string>("")
   const [isConnectingWallet, setConnectingWallet] = useState<boolean>(false)
   const [networkError, setNetworkError] = useState<string>("")
+
+  const desiredNetwork = process.env.REACT_APP_ETHEREUM_NETWORK_CHAIN_ID || HARDHAT_EVM_CHAIN_ID
 
   useEffect(() => {
     connectWallet();
@@ -27,12 +34,12 @@ export default () => {
 
   async function checkNetwork() {
     const chainID = await window.ethereum.request({ method: 'net_version' })
-    if (chainID === HARDHAT_EVM_CHAIN_ID) {
+    if (chainID === desiredNetwork) {
       setNetworkError("")
       return true;
     }
 
-    setNetworkError('Please connect Metamask to Localhost:8545');
+    setNetworkError(`Please connect Metamask to ${networks[desiredNetwork]}`);
 
     return false;
   }
@@ -61,7 +68,7 @@ export default () => {
   });
 
   // We reset the dapp state if the network is changed
-  window.ethereum.on("networkChanged", ([networkId]: string[]) => {
+  window.ethereum.on("networkChanged", ([]: string[]) => {
     checkNetwork();
     setSelectedAddress("");
     connectWallet();

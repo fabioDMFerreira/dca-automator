@@ -83,6 +83,14 @@ contract Record {
         owner = msg.sender;
     }
 
+ /**
+     * @dev Check whether is owner.
+     * @param user address/user/owner.
+     */
+    function isOwner(address user) public view returns (bool) {
+        return user == owner;
+    }
+
     /**
      * @dev Check for Auth if enabled.
      * @param user address/user/owner.
@@ -160,8 +168,59 @@ contract Record {
     }
 }
 
-contract DepositerWithdrawer is Stores {
-    event LogDeposit(
+contract LiquidityPoolDepositerWithdrawer is AaveHelpers {
+
+}
+
+contract DCAAccount is
+    Record,
+    Stores,
+    LiquidityPoolDepositerWithdrawer
+{
+    event LogCast(
+        address indexed origin,
+        address indexed sender,
+        uint256 value
+    );
+
+    receive() external payable {}
+
+    function initialize(
+        address _token,
+        uint256 _depositAmount,
+        uint256 _period
+    ) external {
+        require(msg.sender == instaIndex, "permission-denied");
+
+        token = _token;
+        depositAmount = _depositAmount;
+        period = _period;
+        timeRef = block.timestamp + _period;
+    }
+
+    function dca(address _origin) external payable {
+        require(
+            isAuth(msg.sender) || msg.sender == instaIndex,
+            "permission-denied"
+        );
+        require(timeRef < block.timestamp, "not permited yet");
+
+        depositLiquidityPool(token, depositAmount, 0, 0);
+
+        timeRef = block.timestamp + period;
+
+        emit LogCast(_origin, msg.sender, msg.value);
+    }
+
+    function setIndex(address _instaIndex) external {
+        require(
+            isOwner(msg.sender) || instaIndex == 0x0000000000000000000000000000000000000000,
+            "permission-denied"
+        );
+        instaIndex = _instaIndex;
+    }
+
+        event LogDeposit(
         address indexed erc20,
         uint256 tokenAmt,
         uint256 getId,
@@ -228,7 +287,7 @@ contract DepositerWithdrawer is Stores {
         uint256 getId,
         uint256 setId
     ) public payable {
-        // require(msg.sender == owner, "permission-denied");
+        require(isAuth(msg.sender),"permission-denied");
         uint256 amt = getUint(getId, tokenAmt);
         if (erc20 == getEthAddr()) {
             amt = amt == uint256(-1) ? address(this).balance : amt;
@@ -248,10 +307,8 @@ contract DepositerWithdrawer is Stores {
         // need to generate insta event contract
         //emitEvent(_eventCode, _eventParam);
     }
-}
 
-contract LiquidityPoolDepositerWithdrawer is AaveHelpers {
-    event LogLiquidityPoolDeposit(
+        event LogLiquidityPoolDeposit(
         address indexed token,
         uint256 tokenAmt,
         uint256 getId,
@@ -277,6 +334,7 @@ contract LiquidityPoolDepositerWithdrawer is AaveHelpers {
         uint256 getId,
         uint256 setId
     ) public payable {
+        require(isAuth(msg.sender) || msg.sender == instaIndex,"permission-denied");
         uint256 _amt = getUint(getId, amt);
 
         AaveInterface aave = AaveInterface(getAaveProvider().getLendingPool());
@@ -322,6 +380,7 @@ contract LiquidityPoolDepositerWithdrawer is AaveHelpers {
         uint256 getId,
         uint256 setId
     ) public payable {
+        require(isAuth(msg.sender),"permission-denied");
         uint256 _amt = getUint(getId, amt);
 
         AaveInterface aave = AaveInterface(getAaveProvider().getLendingPool());
@@ -341,50 +400,5 @@ contract LiquidityPoolDepositerWithdrawer is AaveHelpers {
         setUint(setId, _amt);
 
         emit LogLiquidityPoolWithdraw(token, _amt, getId, setId);
-    }
-}
-
-contract DCAAccount is
-    Record,
-    DepositerWithdrawer,
-    LiquidityPoolDepositerWithdrawer
-{
-    event LogCast(
-        address indexed origin,
-        address indexed sender,
-        uint256 value
-    );
-
-    receive() external payable {}
-
-    function initialize(
-        address _token,
-        uint256 _depositAmount,
-        uint256 _period
-    ) external {
-        require(msg.sender == instaIndex, "permission-denied");
-
-        token = _token;
-        depositAmount = _depositAmount;
-        period = _period;
-        timeRef = block.timestamp + _period;
-    }
-
-    function dca(address _origin) external payable {
-        require(
-            isAuth(msg.sender) || msg.sender == instaIndex,
-            "permission-denied"
-        );
-        require(timeRef < block.timestamp, "not permited yet");
-
-        depositLiquidityPool(token, depositAmount, 0, 0);
-
-        timeRef = block.timestamp + period;
-
-        emit LogCast(_origin, msg.sender, msg.value);
-    }
-
-    function setIndex(address _instaIndex) external {
-        instaIndex = _instaIndex;
     }
 }

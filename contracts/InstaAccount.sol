@@ -1,8 +1,6 @@
 pragma solidity ^0.6.12;
 pragma experimental ABIEncoderV2;
 
-import "hardhat/console.sol";
-
 /**
  * @title InstaAccount.
  * @dev DeFi Smart Account Wallet.
@@ -150,9 +148,6 @@ contract InstaAccount is Record {
      * @param _data CallData of function in Connector.
      */
     function spell(address _target, bytes memory _data) internal {
-        // console.log("InstaAccount.spell %s %s", _target,string(_data));
-        // console.logBytes(_data);
-
         require(_target != address(0), "target-invalid");
         assembly {
             let succeeded := delegatecall(

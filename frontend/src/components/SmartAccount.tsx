@@ -24,6 +24,12 @@ export default ({
   const [tokenAmt, setTokenAmt] = useState("");
   const [liqPoolAmt, setLiqPoolAmt] = useState("");
 
+  const [changingBalance, setChangingBalance] = useState<boolean>(false)
+  const [changingBalanceErr, setChangingBalanceErr] = useState("")
+
+  const [changingLiqPoolBalance, setChangingLiqPoolBalance] = useState<boolean>(false)
+  const [changingLiqPoolBalanceErr, setChangingLiqPoolBalanceErr] = useState("")
+
   return (
     <div>
       <h3>DCA Contract</h3>
@@ -46,9 +52,41 @@ export default ({
               <div className="form-group mb-2">
                 <input className="form-control" type="number" onChange={e => { setTokenAmt(e.target.value) }} value={tokenAmt} />
               </div>
-              <button disabled={!tokenAmt} className="mx-sm-1 mb-2 btn btn-dark" onClick={() => { depositToken(tokenAmt) }}>Deposit</button>
-              <button disabled={!tokenAmt} className="mx-sm-1 mb-2 btn btn-dark" onClick={() => { withdrawToken(tokenAmt) }}>Withdraw</button>
+              <button
+                disabled={!tokenAmt || changingBalance}
+                className="mx-sm-1 mb-2 btn btn-dark"
+                onClick={async () => {
+                  setChangingBalanceErr("")
+                  setChangingBalance(true);
+
+                  try {
+                    await depositToken(tokenAmt)
+                  } catch (err) {
+                    setChangingBalanceErr(err.message)
+                  }
+
+                  setChangingBalance(false)
+                }}>Deposit</button>
+              <button
+                disabled={!tokenAmt || changingBalance}
+                className="mx-sm-1 mb-2 btn btn-dark"
+                onClick={async () => {
+                  setChangingBalanceErr("")
+                  setChangingBalance(true);
+
+                  try {
+                    await withdrawToken(tokenAmt)
+                  } catch (err) {
+                    setChangingBalanceErr(err.message)
+                  }
+
+                  setChangingBalance(false)
+                }}>Withdraw</button>
             </div>
+            {
+              changingBalanceErr ?
+                <p className="invalid-feedback">{changingBalanceErr}</p> : ''
+            }
           </div>
 
           <div className="mb-3">
@@ -57,8 +95,40 @@ export default ({
               <div className="form-group mb-2">
                 <input className="form-control" type="number" onChange={e => { setLiqPoolAmt(e.target.value) }} value={liqPoolAmt} />
               </div>
-              <button disabled={!liqPoolAmt} className="mx-sm-1 mb-2 btn btn-dark" onClick={() => { depositLiquidityPool(liqPoolAmt) }}>Deposit</button>
-              <button disabled={!liqPoolAmt} className="mx-sm-1 mb-2 btn btn-dark" onClick={() => { withdrawLiquidityPool(liqPoolAmt) }}>Withdraw</button>
+              <button
+                disabled={!liqPoolAmt || changingLiqPoolBalance}
+                className="mx-sm-1 mb-2 btn btn-dark"
+                onClick={async () => {
+                  setChangingLiqPoolBalanceErr("")
+                  setChangingLiqPoolBalance(true);
+
+                  try {
+                    await depositLiquidityPool(liqPoolAmt)
+                  } catch (err) {
+                    setChangingLiqPoolBalanceErr(err.message)
+                  }
+
+                  setChangingLiqPoolBalance(false)
+                }}>Deposit</button>
+              <button
+                disabled={!liqPoolAmt || changingLiqPoolBalance}
+                className="mx-sm-1 mb-2 btn btn-dark"
+                onClick={async () => {
+                  setChangingLiqPoolBalanceErr("")
+                  setChangingLiqPoolBalance(true);
+
+                  try {
+                    await withdrawLiquidityPool(liqPoolAmt)
+                  } catch (err) {
+                    setChangingLiqPoolBalanceErr(err.message)
+                  }
+
+                  setChangingLiqPoolBalance(false)
+                }}>Withdraw</button>
+              {
+                changingLiqPoolBalanceErr ?
+                  <p className="invalid-feedback">{changingBalanceErr}</p> : ''
+              }
             </div>
           </div>
         </div>

@@ -12,6 +12,7 @@ export default ({ buildDCAContract, tokens }: Props) => {
   const [sellAmount, setSellAmount] = useState<string>("")
   const [token, setToken] = useState<string>("")
   const [period, setPeriod] = useState<string>("3600")
+  const [error, setError] = useState<string>("");
 
   useEffect(() => {
     if (tokens.length) {
@@ -48,16 +49,26 @@ export default ({ buildDCAContract, tokens }: Props) => {
         </select>
       </div>
       <button disabled={!sellAmount || !period || !token || building} className="btn btn-info" onClick={async () => {
+        setError("");
         setBuilding(true)
 
-        await buildDCAContract({
-          sellAmount,
-          period: +period,
-          token,
-        })
+        try {
+          await buildDCAContract({
+            sellAmount,
+            period: +period,
+            token,
+          })
+        } catch (err) {
+          setError(err.message)
+        }
 
         setBuilding(false)
       }}>+ Create</button>
+      {
+        error ?
+          <p className="invalid-feedback">{error}</p> :
+          ""
+      }
     </form>
   )
 }

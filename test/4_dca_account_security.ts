@@ -7,14 +7,16 @@ import DCAAccountABI from '../artifacts/contracts/DCAAccount.sol/DCAAccount.json
 import ConnectBasicABI from '../artifacts/contracts/ConnectBasic.sol/ConnectBasic.json'
 import IERC20ABI from '../artifacts/@openzeppelin/contracts/token/ERC20/IERC20.sol/IERC20.json'
 
-describe("DCA time", () => {
+describe("Protect dca account", () => {
 
   const ethAddress = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE";
   const daiAddress = "0x6b175474e89094c44da98b954eedeac495271d0f";
 
   // Signer
   let signer: SignerWithAddress;
+  let signer2: SignerWithAddress;
   let signerAddress: string;
+  let signerAddress2: string;
 
   // Contracts
   let instaIndex: Contract;
@@ -36,10 +38,14 @@ describe("DCA time", () => {
   // Smart Account
   let smartAccount: Contract;
   let smartAccountAddress = "0xFE3d243Ccf7f2153c2D596eD0c5EACbC01B1433A"; // instaIndex.createClone alawys generates this smartAccount address at first time
+  let smartAccountAddress2 = "0x66e8Be1FBD59FB2433D0044D2870A6CbcF53df3D"; // instaIndex.createClone alawys generates this smartAccount address at first time
+
 
   before(async () => {
-    [, signer] = await ethers.getSigners();
-    signerAddress = await signer.getAddress()
+    [, signer, signer2] = await ethers.getSigners();
+    signerAddress = await signer.getAddress();
+    signerAddress2 = await signer2.getAddress();
+
 
     dai = await ethers.getContractAt(IERC20ABI.abi, daiAddress);
 
@@ -94,7 +100,7 @@ describe("DCA time", () => {
 
     await instaDSAResolver.deployed()
 
-    let currentVersion = await instaIndex.versionCount()
+    let currentVersion = await instaIndex.versionCount();
     const period = 60 * 60;
     await expect(
       instaIndex.build(signerAddress, currentVersion, ethAddress, ethers.utils.parseEther("0.5"), period, signerAddress)
@@ -103,62 +109,104 @@ describe("DCA time", () => {
 
     await signer.sendTransaction({
       to: smartAccountAddress,
-      value: ethers.utils.parseEther("5")
+      value: ethers.utils.parseEther("2")
     })
 
-    smartAccount = await ethers.getContractAt(DCAAccountABI.abi, smartAccountAddress, signer)
-
-    await expect(
-      await smartAccount.isAuth(signerAddress)
-    ).to.be.equal(true)
-  })
-
-  it("should fail executing dca operation if current timestamp is prior to contract time reference", async () => {
-    await expect(
-      smartAccount.dca(signerAddress)
-    ).to.be.revertedWith("not permited yet")
 
   })
 
-  it("should execute dca operation if current timestamp is after time reference and update time reference accordingly", async () => {
-    const rangeLow = 4.9
-    const smartAccountBalance = +ethers.utils.formatEther(await ethers.provider.getBalance(smartAccountAddress))
-    const rangeHigh = 5.1
-    expect(
-      smartAccountBalance
-    ).to.
-      greaterThan(rangeLow).
-      lessThan(rangeHigh)
+  it("withdraw should fail if the user is not allowed", async () => {
+    const smartAccount = await ethers.getContractAt(DCAAccountABI.abi, smartAccountAddress, signer2)
+
+    await expect(
+      smartAccount.withdraw(
+        ethAddress,
+        ethers.utils.parseEther("0.5").toString(),
+        signerAddress2,
+        0,
+        0
+      )
+    ).to.be.revertedWith("permission-denied")
+
+  })
+
+  it("withdraw should work if the user is enabled", async () => {
+    const smartAccount = await ethers.getContractAt(DCAAccountABI.abi, smartAccountAddress, signer)
+
+    await expect(
+      smartAccount.withdraw(
+        ethAddress,
+        ethers.utils.parseEther("0.5").toString(),
+        signerAddress2,
+        0,
+        0
+      )
+    ).to.emit(smartAccount, "LogWithdraw")
+
+  })
+
+  it("dca should fail if the user is not allowed", async () => {
+    const smartAccount = await ethers.getContractAt(DCAAccountABI.abi, smartAccountAddress, signer2)
 
     const timeRef = await smartAccount.timeRef();
+    await waffle.provider.send("evm_setNextBlockTimestamp", [+timeRef + 1000]);
 
-    const blockTimestamp = +timeRef + 1
+    await expect(
+      smartAccount.dca(signerAddress2)
+    ).to.be.revertedWith("permission-denied")
 
-    await waffle.provider.send("evm_setNextBlockTimestamp", [blockTimestamp]);
+  })
+
+  it("dca should work if the user is enabled", async () => {
+    const smartAccount = await ethers.getContractAt(DCAAccountABI.abi, smartAccountAddress, signer)
+
+    const timeRef = await smartAccount.timeRef();
+    await waffle.provider.send("evm_setNextBlockTimestamp", [+timeRef + 2000]);
 
     await expect(
       smartAccount.dca(signerAddress)
     ).to.emit(smartAccount, "LogCast")
+  })
 
-    const newTimeRef = await smartAccount.timeRef();
+  it("setIndex should fail even if signer is the account creator", async () => {
+    const smartAccount = await ethers.getContractAt(DCAAccountABI.abi, smartAccountAddress, signer)
 
-    expect(+newTimeRef.toString()).to.equal(+blockTimestamp + (60 * 60))
+    await expect(
+      smartAccount.setIndex(signerAddress)
+    ).to.be.revertedWith("permission-denied")
+  })
 
-    const smartAccountBalanceAfterWithdrawal = +ethers.utils.formatEther(await ethers.provider.getBalance(smartAccountAddress))
-    expect(
-      smartAccountBalanceAfterWithdrawal
-    ).to.
-      greaterThan(rangeLow - 0.5).
-      lessThan(rangeHigh - 0.5)
+  it("depositLiquidityPool should fail if signer is not the account creator", async () => {
+    const smartAccount = await ethers.getContractAt(DCAAccountABI.abi, smartAccountAddress, signer2)
 
-  }).timeout(60000)
+    await expect(
+      smartAccount.depositLiquidityPool(ethAddress,
+        ethers.utils.parseEther("0.5"),
+        0,
+        0)
+    ).to.be.revertedWith("permission-denied")
+  })
+
+  it("depositLiquidityPool should work if signer is the account creator", async () => {
+    const smartAccount = await ethers.getContractAt(DCAAccountABI.abi, smartAccountAddress, signer)
+
+    await expect(
+      smartAccount.depositLiquidityPool(ethAddress,
+        ethers.utils.parseEther("0.5"),
+        0,
+        0)
+    ).to.emit(smartAccount,"LogLiquidityPoolDeposit")
+  })
+
+  it("withdrawLiquidityPool should fail if signer is not the account creator", async () => {
+    const smartAccount = await ethers.getContractAt(DCAAccountABI.abi, smartAccountAddress, signer2)
+
+    await expect(
+      smartAccount.withdrawLiquidityPool(ethAddress,
+        ethers.utils.parseEther("0.5"),
+        0,
+        0)
+    ).to.be.revertedWith("permission-denied")
+  })
 
 })
-
-function encodeBasicConnectSpell(method: string, args: any[]) {
-  const ifc = new utils.Interface(ConnectBasicABI.abi)
-
-  const funcFrags = ifc.getFunction(method)
-
-  return ifc.encodeFunctionData(funcFrags, args);
-}

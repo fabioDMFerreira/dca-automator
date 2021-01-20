@@ -8,5 +8,10 @@ artifacts
 src/contracts
 
 .env
+.env*
 
 frontend/debug.log
+
+last-artifacts-deployed
+
+reports/*

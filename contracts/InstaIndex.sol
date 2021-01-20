@@ -1,6 +1,7 @@
 pragma solidity ^0.6.12;
 pragma experimental ABIEncoderV2;
 
+
 /**
  * @title InstaIndex
  * @dev Main Contract For DeFi Smart Accounts. This is also a factory contract, Which deploys new Smart Account.
@@ -25,6 +26,8 @@ interface AccountInterface {
         uint256 _depositAmount,
         uint256 _period
     ) external;
+
+    function dca(address _origin) external payable;
 }
 
 interface ListInterface {
@@ -188,6 +191,8 @@ contract InstaIndex is CloneFactory {
         address indexed origin
     );
 
+    event LogBatchDCACompleted();
+
     /**
      * @dev Create a new DeFi Smart Account for a user.
      * @param _owner Owner of the Smart Account.
@@ -212,6 +217,15 @@ contract InstaIndex is CloneFactory {
         AccountInterface(_account).enable(_owner);
         AccountInterface(_account).initialize(_token, _depositAmount, _period);
         emit LogAccountCreated(msg.sender, _owner, _account, _origin);
+    }
+
+    function batchDCA(
+        address[] calldata _accounts
+    ) external {
+        for (uint256 i = 0; i < _accounts.length; i++) {
+            AccountInterface(_accounts[i]).dca(msg.sender);
+        }
+        emit LogBatchDCACompleted();
     }
 
     /**
