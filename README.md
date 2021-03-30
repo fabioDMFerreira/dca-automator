@@ -1,80 +1,91 @@
-# Instadapp Manager
+# DCA Automator
 
-This repository contains a web interface and contracts to interact with Instadapp API.
+The DCA Automator creates smart contracts in Ethereum that deposit periodically an amount of ETH or ERC20 tokens in a liquidity pool.
+
+![dca-automator-demo](./demo.png)
+
+## What’s Included?
+
+* [Ethereum DCA Smart Contracts](./smart-contracts)
+* [Keeper](./keeper)
+* [React Client](./client)
 
 ## Quick start
 
+Start by downloading the project.
 ```sh
-git clone https://github.com/fabiodmferreira/instadapp-manager.git
-cd instadapp-manager
-npm install
+$ git clone https://github.com/fabiodmferreira/dca-automator.git
+$ cd dca-automator
 ```
 
-Set environment variables in `.env`:
+### Deploy smart contracts
+
+Enter smart contracts directory.
+```sh
+$ cd smart-contracts
+```
+
+Install dependencies
+```sh
+$ npm install
+```
+
+Set `INFURA_ID` in your system environment variables or create the `.env` with next content.
 ```
 INFURA_ID=<your infura node id>
 ```
 
-Once installed, let's run Buidler's testing network:
-
+Run the Buidler's testing network.
 ```sh
 npm run launch-node
 ```
 
-Then, on a new terminal, go to the repository's root folder and run this to
-deploy your contract:
-
+On a new terminal, go to `smart-contracts` directory and deploy the contracts.
 ```sh
 npm run deploy-contracts
 ```
 
-Finally, we can run the frontend with:
+The deploy scripts added the contracts addresses and the ABI files to `client/src/contracts` and `keeper/contracts`, so they can interact with the contracts deployed.
 
+### Launch client
+
+Make sure you have [Metamask](https://metamask.io/) installed.
+
+Enter client directory.
 ```sh
-cd frontend
-npm install
-npm start
+$ cd client
 ```
 
-Open [http://localhost:3000/](http://localhost:3000/) to see your Dapp. You will
-need to have [Metamask](http://metamask.io) installed and listening to
-`localhost 8545`.
+Install dependencies.
+```sh
+$ npm install
+```
 
-## User Guide
+Run the client server.
+```sh
+$ npm start
+```
 
-You can find detailed instructions on using this repository and many tips in [buidler documentation](http://buidler.dev/tutorial).
+It will popup a tab in your browser with the url `http://localhost:3000`. Here you will have to connect with your metamask account and you will be able to create your smart contracts that will deposit tokens in Aave liquidity pools.
 
-- [Project description (Token.sol)](http://buidler.dev/tutorial/4-contracts/)
-- [Setting up the environment](http://buidler.dev/tutorial/1-setup/)
-- [Testing with Buidler, Mocha and Waffle](http://buidler.dev/tutorial/5-test/)
-- [Setting up Metamask](http://buidler.dev/tutorial/8-frontend/#setting-up-metamask)
-- [Buidler's full documentation](https://buidler.dev/getting-started/)
+**Note:** Metamask may popup an invalid nonce error the first time you sign a transaction. Reset your account in Metamask settings (`Settings > Advanced > Reset Account`) to fix this issue. The nonce cached will be reset.
 
-For a complete introduction to Buidler, refer to [this guide](https://buidler.dev/getting-started/#overview).
+### Keeper
 
-## What’s Included?
+The keeper is a daemon service that inspects for dca contracts that allow to transfer tokens to the liquidity pools.
 
-Your environment will have everything you need to build a Dapp powered by Buidler and React.
+Enter keeper directory.
+```sh
+$ cd keeper
+```
 
-- [Buidler](https://buidler.dev/): An Ethereum development task runner and testing network.
-- [Mocha](https://mochajs.org/): A JavaScript test runner.
-- [Chai](https://www.chaijs.com/): A JavaScript assertion library.
-- [ethers.js](https://docs.ethers.io/ethers.js/html/): A JavaScript library for interacting with Ethereum.
-- [Waffle](https://github.com/EthWorks/Waffle/): To have Ethereum-specific Chai assertions/mathers.
-- [A sample frontend/Dapp](./frontend): A Dapp which uses [Create React App](https://github.com/facebook/create-react-app).
+Install dependencies.
+```sh
+$ npm install
+```
 
-## Troubleshooting
+Run the keeper.
+```
+$ npm start
+```
 
-- `Invalid nonce` errors: if you are seeing this error on the `buidler node`
-  console, try resetting your Metamask account. This will reset the account's
-  transaction history and also the nonce. Open Metamask, click on your account
-  followed by `Settings > Advanced > Reset Account`.
-
-## Feedback, help and news
-
-We'd love to have your feedback on this tutorial. Feel free to reach us through
-this repository or [our Telegram Support Group](https://t.me/BuidlerSupport).
-
-Also you can [follow Nomic Labs on Twitter](https://twitter.com/nomiclabs).
-
-**Happy _buidling_!**

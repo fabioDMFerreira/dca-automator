@@ -1,0 +1,4 @@
+contracts/*
+reports
+.env
+node_modules
